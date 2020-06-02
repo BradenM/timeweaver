@@ -79,8 +79,8 @@ def create_teamwork_entry(data):
     meta_name = data["tags"][0].upper()
     project = Project.__dict__.get(meta_name, Project.ARROYODEV).value
     meta = META_MAP.get(meta_name, EntryMeta(project, None, []))
-    start = dateparser.isoparse(data["start"])
-    end = dateparser.isoparse(data["end"])
+    start = dateparser.isoparse(data["start"]).astimezone()
+    end = dateparser.isoparse(data["end"]).astimezone()
     delta = relativedelta(end, start)
 
     base_uri = "***REMOVED***"
