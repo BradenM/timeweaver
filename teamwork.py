@@ -29,9 +29,12 @@ TIME_FORMAT = "%H:%M"
 
 class Project(Enum):
     ARROYODEV = ***REMOVED***
+    ***REMOVED*** = ***REMOVED***
+    ***REMOVED*** = ***REMOVED***
 
 
 class Task(Enum):
+    ***REMOVED*** = ***REMOVED***
     ***REMOVED*** = ***REMOVED***
 
 
@@ -39,6 +42,7 @@ class Tag(Enum):
     ***REMOVED*** = "***REMOVED***"  # ***REMOVED***
     ***REMOVED*** = "***REMOVED***"  # ***REMOVED***
     ***REMOVED*** = "***REMOVED***"  # ***REMOVED***
+    ***REMOVED*** = "***REMOVED***"
     ***REMOVED*** = "***REMOVED***"
     ***REMOVED*** = "***REMOVED***"
 
@@ -50,11 +54,13 @@ META_MAP = {
         Project.ARROYODEV.value, Task.***REMOVED***.value, [Tag.***REMOVED***.value]
     ),
     "PATIENTCONNECT": EntryMeta(
-        Project.ARROYODEV.value,
+        Project.***REMOVED***.value,
         None,
         [Tag.***REMOVED***.value, Tag.***REMOVED***.value, Tag.***REMOVED***.value],
     ),
     "***REMOVED***STOCK": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value]),
+    "***REMOVED***": EntryMeta(Project.***REMOVED***.value, Task.***REMOVED***.value, []),
+    "ARROYODEV": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value]),
 }
 
 
@@ -106,13 +112,14 @@ def create_teamwork_entry(data):
 def post_teamwork_entry(entry):
     endpoint = entry.pop("endpoint")
     entry_id = entry.pop("entry-id")
-    env_path = Path(__file__).parent / '.env'
+    env_path = Path(__file__).parent / ".env"
     load_dotenv(env_path)
     headers = {
         "Authorization": f"Basic {os.getenv('TEAMWORK_TOKEN')}"
     }
     print("\nPublishing entry:")
     pprint(entry, indent=4)
+    print(endpoint, headers, entry)
     resp = requests.post(endpoint, headers=headers, json=entry)
     resp.raise_for_status()
     tag_timew_entry(entry_id, "logged")
@@ -130,7 +137,6 @@ _, data = parse_input()
 unlogged_entries = [d for d in data if "logged" not in d["tags"]]
 entries = [create_teamwork_entry(d) for d in unlogged_entries]
 
-pprint(entries)
 
 for entry in entries:
     post_teamwork_entry(entry)
