@@ -45,6 +45,7 @@ class Tag(Enum):
     ***REMOVED*** = "***REMOVED***"
     ***REMOVED*** = "***REMOVED***"
     ***REMOVED*** = "***REMOVED***"
+    ***REMOVED*** = '***REMOVED***'
 
 
 EntryMeta = namedtuple("EntryMeta", ["project", "task", "tags"])
@@ -60,7 +61,7 @@ META_MAP = {
     ),
     "***REMOVED***STOCK": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value]),
     "***REMOVED***": EntryMeta(Project.***REMOVED***.value, Task.***REMOVED***.value, []),
-    "ARROYODEV": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value]),
+    "ARROYODEV": EntryMeta(Project.ARROYODEV.value, None, []),
 }
 
 
