@@ -31,6 +31,7 @@ class Project(Enum):
     ARROYODEV = ***REMOVED***
     ***REMOVED*** = ***REMOVED***
     ***REMOVED*** = ***REMOVED***
+    ***REMOVED*** = ***REMOVED***
 
 
 class Task(Enum):
@@ -62,6 +63,8 @@ META_MAP = {
     "***REMOVED***STOCK": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value]),
     "***REMOVED***": EntryMeta(Project.***REMOVED***.value, Task.***REMOVED***.value, []),
     "ARROYODEV": EntryMeta(Project.ARROYODEV.value, None, []),
+    "***REMOVED***": EntryMeta(Project.***REMOVED***.value, None, []),
+    "***REMOVED***": EntryMeta(Project.***REMOVED***.value, None, []),
 }
 
 
