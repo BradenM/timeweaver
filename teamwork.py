@@ -36,6 +36,7 @@ class Project(Enum):
 
 class Task(Enum):
     ***REMOVED*** = ***REMOVED***
+    ***REMOVED***_MEETING = ***REMOVED***
     ***REMOVED*** = ***REMOVED***
 
 
@@ -46,7 +47,7 @@ class Tag(Enum):
     ***REMOVED*** = "***REMOVED***"
     ***REMOVED*** = "***REMOVED***"
     ***REMOVED*** = "***REMOVED***"
-    ***REMOVED*** = '***REMOVED***'
+    ***REMOVED*** = "***REMOVED***"
 
 
 EntryMeta = namedtuple("EntryMeta", ["project", "task", "tags"])
@@ -54,6 +55,11 @@ EntryMeta = namedtuple("EntryMeta", ["project", "task", "tags"])
 META_MAP = {
     "***REMOVED***": EntryMeta(
         Project.ARROYODEV.value, Task.***REMOVED***.value, [Tag.***REMOVED***.value]
+    ),
+    "***REMOVED***_MEETING": EntryMeta(
+        Project.ARROYODEV.value,
+        Task.***REMOVED***_MEETING.value,
+        [Tag.***REMOVED***.value],
     ),
     "PATIENTCONNECT": EntryMeta(
         Project.***REMOVED***.value,
@@ -82,18 +88,25 @@ def get_description(title, annotation):
     return default_text
 
 
+def iter_meta_from_tags(tags):
+    for i in range(len(tags)):
+        meta_name = "_".join(tags[: len(tags) - i]).upper()
+        if meta_name in META_MAP:
+            yield META_MAP.get(meta_name)
+
+
 def create_teamwork_entry(data):
     annotation = data.get("annotation", "no annotation found!")
     tags = ", ".join(data["tags"])
     desc = get_description(tags, annotation)
-    meta_name = data["tags"][0].upper()
-    project = Project.__dict__.get(meta_name, Project.ARROYODEV).value
-    meta = META_MAP.get(meta_name, EntryMeta(project, None, []))
+    meta = next(
+        iter_meta_from_tags(data["tags"]), EntryMeta(Project.ARROYODEV.value, None, [])
+    )
     start = dateparser.isoparse(data["start"]).astimezone()
     end = dateparser.isoparse(data["end"]).astimezone()
     delta = relativedelta(end, start)
     # add extra tags
-    extra_tags = [Tag.__dict__.get(t.upper(), None) for t in data['tags'][1:]]
+    extra_tags = [Tag.__dict__.get(t.upper(), None) for t in data["tags"][1:]]
     meta.tags.extend([t.value for t in extra_tags if t is not None])
     base_uri = "***REMOVED***"
     endpoint = f"/projects/{meta.project}/time_entries.json"
