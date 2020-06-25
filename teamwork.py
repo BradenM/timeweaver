@@ -88,7 +88,9 @@ def create_teamwork_entry(data):
     start = dateparser.isoparse(data["start"]).astimezone()
     end = dateparser.isoparse(data["end"]).astimezone()
     delta = relativedelta(end, start)
-
+    # add extra tags
+    extra_tags = [Tag.__dict__.get(t.upper(), None) for t in data['tags'][1:]]
+    meta.tags.extend([t.value for t in extra_tags if t is not None])
     base_uri = "***REMOVED***"
     endpoint = f"/projects/{meta.project}/time_entries.json"
     if meta.task:
