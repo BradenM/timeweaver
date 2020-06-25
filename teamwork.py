@@ -20,6 +20,8 @@ import subprocess as sp
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from rich.console import Console
+from rich.table import Table, Column, box
 
 ROSS_ID = os.getenv('TEAMWORK_ID')
 
@@ -83,7 +85,6 @@ def parse_input():
 
 
 def get_description(title, annotation):
-    print("Get Description")
     default_text = f"# {title}\n{annotation}"
     return default_text
 
@@ -136,9 +137,6 @@ def post_teamwork_entry(entry):
     headers = {
         "Authorization": f"Basic {os.getenv('TEAMWORK_TOKEN')}"
     }
-    print("\nPublishing entry:")
-    pprint(entry, indent=4)
-    print(endpoint, headers, entry)
     resp = requests.post(endpoint, headers=headers, json=entry)
     resp.raise_for_status()
     tag_timew_entry(entry_id, "logged")
@@ -156,6 +154,32 @@ _, data = parse_input()
 unlogged_entries = [d for d in data if "logged" not in d["tags"]]
 entries = [create_teamwork_entry(d) for d in unlogged_entries]
 
+# pprint(entries)
 
-for entry in entries:
+table = Table(
+    "Entry",
+    "Date",
+    "Time",
+    "Description",
+    title="Teamwork Entries",
+    show_lines=True,
+    box=box.HEAVY_EDGE,
+)
+
+totals = (0, 0)
+for entry in reversed(entries):
+    t_entry = entry["time-entry"]
+    date = f'{t_entry["date"]} {t_entry["time"]}'
+    time = ":".join((t_entry["hours"], t_entry["minutes"]))
+    totals = (totals[0] + int(t_entry["hours"]), totals[1] + int(t_entry["minutes"]))
+    table.add_row(str(entry["entry-id"]), date, time, t_entry["description"])
     post_teamwork_entry(entry)
+
+
+con = Console(force_terminal=True, width=255)
+con.print(table)
+
+hours, minutes = totals
+hours += minutes // 60  # Get extra hours from minutes
+minutes = minutes % 60  # Get remainder minutes
+con.print(f"\n[white][bold]Total Time:[/bold] {hours}hrs {minutes}mins[/white]\n")
