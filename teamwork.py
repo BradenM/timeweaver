@@ -80,24 +80,26 @@ def parse_input():
 
 
 def get_description(title, annotation):
-    default_text = f"# {title}\n{annotation}"
+    title_parts = [t.capitalize() for t in title.split('.')]
+    formatted = ' '.join(title_parts)
+    default_text = f"# {formatted}\n{annotation}"
     return default_text
 
 
-def iter_meta_from_tags(tags):
-    for i in range(len(tags)):
-        meta_name = "_".join(tags[: len(tags) - i]).upper()
-        if meta_name in META_MAP:
-            yield META_MAP.get(meta_name)
+def get_meta_from_tags(tags):
+    project = tags.pop(0).upper().split('.')
+    meta = dpath.util.get(META_MAP, project)
+    extra_tags = [Tag.__dict__.get(t.upper(), None) for t in tags]
+    meta.tags.extend([t.value for t in extra_tags if t is not None])
+    return meta
 
 
 def create_teamwork_entry(data):
-    annotation = data.get("annotation", "no annotation found!")
-    tags = ", ".join(data["tags"])
-    desc = get_description(tags, annotation)
-    meta = next(
-        iter_meta_from_tags(data["tags"]), EntryMeta(Project.ARROYODEV.value, None, [])
-    )
+    tags = data["tags"][1:]
+    task_desc = tags.pop(0)
+    annotation = data.get("annotation", task_desc)
+    desc = get_description(tags[0], annotation)
+    meta = get_meta_from_tags(tags)
     start = dateparser.isoparse(data["start"]).astimezone()
     end = dateparser.isoparse(data["end"]).astimezone()
     delta = relativedelta(end, start)
@@ -146,10 +148,9 @@ def tag_timew_entry(entry_id, tag):
 
 _, data = parse_input()
 
-unlogged_entries = [d for d in data if "logged" not in d["tags"]]
+unlogged_entries = [d for d in data if "logged" not in d["tags"] and "@work" in d["tags"]]
+print(unlogged_entries)
 entries = [create_teamwork_entry(d) for d in unlogged_entries]
-
-# pprint(entries)
 
 table = Table(
     "Entry",
@@ -169,7 +170,6 @@ for entry in reversed(entries):
     totals = (totals[0] + int(t_entry["hours"]), totals[1] + int(t_entry["minutes"]))
     table.add_row(str(entry["entry-id"]), date, time, t_entry["description"])
     post_teamwork_entry(entry)
-
 
 con = Console(force_terminal=True, width=255)
 con.print(table)
