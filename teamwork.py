@@ -8,20 +8,20 @@ as logged.
 
 """
 
-import sys
 import json
-from pprint import pprint
+import subprocess as sp
+import sys
+from collections import namedtuple
 from enum import Enum
+from pathlib import Path
+
+import dpath.util
+import requests
 from dateutil import parser as dateparser
 from dateutil.relativedelta import relativedelta
-from collections import namedtuple
-import requests
-import subprocess as sp
-from pathlib import Path
-import os
 from dotenv import load_dotenv
 from rich.console import Console
-from rich.table import Table, Column, box
+from rich.table import Table, box
 
 ROSS_ID = os.getenv('TEAMWORK_ID')
 
@@ -55,24 +55,19 @@ class Tag(Enum):
 EntryMeta = namedtuple("EntryMeta", ["project", "task", "tags"])
 
 META_MAP = {
-    "***REMOVED***": EntryMeta(
-        Project.ARROYODEV.value, Task.***REMOVED***.value, [Tag.***REMOVED***.value]
-    ),
-    "***REMOVED***_MEETING": EntryMeta(
-        Project.ARROYODEV.value,
-        Task.***REMOVED***_MEETING.value,
-        [Tag.***REMOVED***.value],
-    ),
-    "PATIENTCONNECT": EntryMeta(
-        Project.***REMOVED***.value,
-        None,
-        [Tag.***REMOVED***.value, Tag.***REMOVED***.value, Tag.***REMOVED***.value],
-    ),
-    "***REMOVED***STOCK": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value]),
     "***REMOVED***": EntryMeta(Project.***REMOVED***.value, Task.***REMOVED***.value, []),
-    "ARROYODEV": EntryMeta(Project.ARROYODEV.value, None, []),
     "***REMOVED***": EntryMeta(Project.***REMOVED***.value, None, []),
-    "***REMOVED***": EntryMeta(Project.***REMOVED***.value, None, []),
+    "***REMOVED***": {
+        "GENERAL": EntryMeta(Project.ARROYODEV.value, Task.***REMOVED***_MEETING.value, [Tag.***REMOVED***.value])
+    },
+    "***REMOVED***": {
+        "GENERAL": EntryMeta(Project.***REMOVED***.value, None, [Tag.***REMOVED***.value, Tag.***REMOVED***.value]),
+        "API": EntryMeta(Project.***REMOVED***.value, None, [Tag.***REMOVED***.value, Tag.***REMOVED***.value]),
+        "APP": EntryMeta(Project.***REMOVED***.value, None, [Tag.***REMOVED***.value, Tag.***REMOVED***.value, Tag.***REMOVED***.value])
+    },
+    "ARROYODEV": {
+        "GENERAL": EntryMeta(Project.ARROYODEV.value, None, [])
+    }
 }
 
 
