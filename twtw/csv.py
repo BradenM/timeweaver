@@ -15,6 +15,7 @@ from twtw.teamwork import (
     TIME_FORMAT,
     post_teamwork_entry,
 )
+from twtw import config
 
 from rich.console import Console
 from rich.table import Table, box

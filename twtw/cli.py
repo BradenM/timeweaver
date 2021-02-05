@@ -1,7 +1,12 @@
 import click
 from .teamwork import load_entries
 from pathlib import Path
-from . import recent as twrecent, aggregate as twaggregate, csv as twcsv
+from . import (
+    recent as twrecent,
+    aggregate as twaggregate,
+    csv as twcsv,
+    config as twconfig,
+)
 
 
 @click.group()
@@ -37,6 +42,15 @@ def csv(csv_path, commit=False):
     """arroyoDev CSV Teamwork integration entrypoint."""
     csv_path = Path(csv_path)
     twcsv.load_entries(csv_path, commit=commit)
+
+
+@click.argument("api_key")
+@cli.command()
+def set_key(api_key: str):
+    """Set Api Key."""
+    config = twconfig.load_config()
+    config.api_key = api_key
+    config.save()
 
 
 if __name__ == "__main__":

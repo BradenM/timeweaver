@@ -13,6 +13,7 @@ import subprocess as sp
 import sys
 from collections import namedtuple
 from enum import Enum
+import twtw.config
 from pathlib import Path
 from time import sleep
 import click
@@ -157,9 +158,11 @@ def post_teamwork_entry(entry, con, is_timewarrior=True):
     entry_id = entry.pop("entry-id")
     env_path = Path(__file__).parent / ".env"
     load_dotenv(env_path)
-    headers = {
-        "Authorization": f"Basic dHdwX09FWmlzaHNiMUpCZ3F2emxDcmhlblliRzJJVUQ6IA=="
-    }
+    config = twtw.config.load_config()
+    api_key = config.api_key
+    if not api_key:
+        raise RuntimeError("No api key set!")
+    headers = {"Authorization": f"Basic {api_key}"}
     resp = requests.post(endpoint, headers=headers, json=entry)
     resp.raise_for_status()
     data = resp.json()
