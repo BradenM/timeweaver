@@ -91,6 +91,7 @@ META_MAP = {
         "APP": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value]),
     },
     "***REMOVED***": EntryMeta(Project.ARROYODEV.value, None, []),
+    "***REMOVED***": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value]),
 }
 
 
@@ -151,7 +152,7 @@ def create_teamwork_entry(data):
     }
 
 
-def post_teamwork_entry(entry, con):
+def post_teamwork_entry(entry, con, is_timewarrior=True):
     endpoint = entry.pop("endpoint")
     entry_id = entry.pop("entry-id")
     env_path = Path(__file__).parent / ".env"
@@ -165,8 +166,9 @@ def post_teamwork_entry(entry, con):
     con.print(data)
     assert data["STATUS"] == "OK", "Failed to create entry!"
     sleep(1)
-    tag_timew_entry(entry_id, "logged", con)
-    tag_timew_entry(entry_id, f"twtw:id:{data['timeLogId']}", con)
+    if is_timewarrior:
+        tag_timew_entry(entry_id, "logged", con)
+        tag_timew_entry(entry_id, f"twtw:id:{data['timeLogId']}", con)
 
 
 def tag_timew_entry(entry_id, tag, con):
