@@ -43,7 +43,7 @@ class CSVData:
 
     @property
     def project_meta(self) -> EntryMeta:
-        meta_activity = self.activity.upper()
+        meta_activity = self.activity.upper().strip()
         meta_general = meta_activity + ".GENERAL"
         meta = dpath.util.get(META_MAP, meta_general, separator=".", default=None)
         print(self.activity, meta_general)
