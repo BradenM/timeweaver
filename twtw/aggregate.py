@@ -19,7 +19,7 @@ def get_aggregates():
 
     con = Console()
 
-    _, data = tw.parse_input(process=False)
+    _, data = tw.parse_timewarrior(process=False)
     table_data = {}
 
     for entry in data:
