@@ -12,8 +12,10 @@ import json
 import subprocess as sp
 import sys
 from collections import namedtuple
+from copy import deepcopy
 from enum import Enum
 import twtw.config
+import twtw.taskw
 from pathlib import Path
 from time import sleep
 import click
@@ -114,10 +116,22 @@ def get_description(title, annotation):
 
 
 def get_meta_from_tags(tags):
-    project = tags.pop(0).upper().split(".")
-    meta = dpath.util.get(META_MAP, project)
-    extra_tags = [Tag.__dict__.get(t.upper(), None) for t in tags]
-    meta.tags.extend(set([t.value for t in extra_tags if t is not None]))
+    task_data = twtw.taskw.TaskWarriorData()
+    project = next((t for t in tags if t in task_data.projects))
+    project = tags.pop(tags.index(project)).upper().split('.')
+    print('project:', project, 'tags:', tags)
+    orig_meta = dpath.util.get(META_MAP, project)
+    meta = deepcopy(orig_meta)
+    extra_tags = []
+    for t in tags:
+        if def_tag := Tag.__dict__.get(t.upper(), None):
+            extra_tags.append(def_tag)
+        else:
+            if 'twtw:tag' in t:
+                extra_tags.append(t.split('twtw:tag:')[-1])
+    print('extra tags:', extra_tags)
+    meta.tags.extend(set([getattr(t, 'value', t) for t in extra_tags if t is not None]))
+    print('meta:', meta)
     return meta
 
 
@@ -130,16 +144,14 @@ def create_teamwork_entry(data):
     start = dateparser.isoparse(data["start"]).astimezone()
     end = dateparser.isoparse(data["end"]).astimezone()
     delta = relativedelta(end, start)
-    # add extra tags
-    extra_tags = [Tag.__dict__.get(t.upper(), None) for t in data["tags"][1:]]
-    meta.tags.extend([t.value for t in extra_tags if t is not None])
+    tw_entry_id = next((t.split('twtw:id:')[-1] for t in tags if 'twtw:id' in t), None)
     base_uri = "***REMOVED***"
     endpoint = f"/projects/{meta.project}/time_entries.json"
     if meta.task:
         endpoint = f"/tasks/{meta.task}/time_entries.json"
-    return {
+    post_data = {
         "endpoint": base_uri + endpoint,
-        "entry-id": data.get("id", -1),
+        "tw-id": data.get('id', -1),
         "time-entry": {
             "description": desc,
             "person-id": str(USER_ID),
@@ -151,11 +163,14 @@ def create_teamwork_entry(data):
             "tags": ",".join(set((str(s) for s in meta.tags))),
         },
     }
+    if tw_entry_id:
+        post_data.setdefault('entry-id', tw_entry_id)
+    return post_data
 
 
 def post_teamwork_entry(entry, con, is_timewarrior=True):
     endpoint = entry.pop("endpoint")
-    entry_id = entry.pop("entry-id")
+    tw_id = entry.pop("tw-id")
     env_path = Path(__file__).parent / ".env"
     load_dotenv(env_path)
     config = twtw.config.load_config()
@@ -170,8 +185,8 @@ def post_teamwork_entry(entry, con, is_timewarrior=True):
     assert data["STATUS"] == "OK", "Failed to create entry!"
     sleep(1)
     if is_timewarrior:
-        tag_timew_entry(entry_id, "logged", con)
-        tag_timew_entry(entry_id, f"twtw:id:{data['timeLogId']}", con)
+        tag_timew_entry(tw_id, "logged", con)
+        tag_timew_entry(tw_id, f"twtw:id:{data['timeLogId']}", con)
 
 
 def tag_timew_entry(entry_id, tag, con):
@@ -214,7 +229,7 @@ def load_entries(commit=False):
             totals[1] + int(t_entry["minutes"]),
         )
         table.add_row(
-            str(entry["entry-id"]), date, time, t_entry["description"], t_entry["tags"]
+            str(entry["tw-id"]), date, time, t_entry["description"], t_entry["tags"]
         )
         if t_entry["hours"] == "0" and t_entry["minutes"] == "0":
             con.print(entry)
