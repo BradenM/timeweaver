@@ -6,7 +6,7 @@ from dateutil import parser as dparser
 from dateutil.relativedelta import relativedelta
 
 
-def parse_input(process=False):
+def parse_timewarrior(process=False):
     # lines = sys.stdin.readlines()
     proc = sp.run(["/usr/bin/timew", "export"], stdout=sp.PIPE, text=True)
     lines = proc.stdout
@@ -17,6 +17,20 @@ def parse_input(process=False):
     if process:
         data = [parse_entry(d) for d in data if "end" in d]
     return {}, data
+
+
+def parse_taskwarrior():
+    proc = sp.run(["/usr/bin/task", "export"], stdout=sp.PIPE, text=True)
+    lines = proc.stdout
+    data = json.loads(lines)
+    return data
+
+
+def iter_task_projects():
+    data = parse_taskwarrior()
+    for item in data:
+        if proj := item.get('project'):
+            yield proj
 
 
 def get_entry_dates(entry):
