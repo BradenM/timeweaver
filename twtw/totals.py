@@ -28,8 +28,8 @@
 
 import datetime
 import json
-
 import sys
+
 from dateutil import tz
 
 DATEFORMAT = "%Y%m%dT%H%M%SZ"

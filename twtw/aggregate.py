@@ -2,10 +2,10 @@
 
 from dateutil import parser as dateparser
 from dateutil.relativedelta import relativedelta
-from . import tw
-
 from rich.console import Console
-from rich.table import Table, Column
+from rich.table import Column, Table
+
+from . import tw
 
 
 def get_aggregates():

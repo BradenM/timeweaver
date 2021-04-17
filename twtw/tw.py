@@ -1,6 +1,6 @@
-import sys
 import json
 import subprocess as sp
+import sys
 
 from dateutil import parser as dparser
 from dateutil.relativedelta import relativedelta
@@ -29,7 +29,7 @@ def parse_taskwarrior():
 def iter_task_projects():
     data = parse_taskwarrior()
     for item in data:
-        if proj := item.get('project'):
+        if proj := item.get("project"):
             yield proj
 
 

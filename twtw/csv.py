@@ -3,24 +3,20 @@
 """TWTW CSV parsing."""
 
 import csv
-from pathlib import Path
 from dataclasses import dataclass
-from dateutil import parser as dateparser, relativedelta
-from typing import Union, Dict, Optional, List
+from pathlib import Path
+from typing import Dict, List, Optional, Union
+
 import dpath.util
-from twtw.teamwork import (
-    META_MAP,
-    EntryMeta,
-    DATE_FORMAT,
-    TIME_FORMAT,
-    post_teamwork_entry,
-)
-from twtw import config
-
+from dateutil import parser as dateparser
+from dateutil import relativedelta
 from rich.console import Console
-from rich.table import Table, box
 from rich.progress import track
+from rich.table import Table, box
 
+from twtw import config
+from twtw.teamwork import (DATE_FORMAT, META_MAP, TIME_FORMAT, EntryMeta,
+                           post_teamwork_entry)
 
 ROSS_ID = os.getenv('TEAMWORK_ID')
 

@@ -2,10 +2,11 @@
 
 """TWTW Config."""
 
-from pathlib import Path
-import click
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
+from pathlib import Path
+
+import click
 
 CONFIG_ROOT = Path(click.get_app_dir("twtw"))
 CONFIG_PATH = CONFIG_ROOT / "config.json"

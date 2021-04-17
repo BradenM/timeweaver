@@ -14,20 +14,21 @@ import sys
 from collections import namedtuple
 from copy import deepcopy
 from enum import Enum
-import twtw.config
-import twtw.taskw
 from pathlib import Path
 from time import sleep
-import click
 
+import click
 import dpath.util
 import requests
 from dateutil import parser as dateparser
 from dateutil.relativedelta import relativedelta
 from dotenv import load_dotenv
 from rich.console import Console
-from rich.table import Table, box
 from rich.progress import track
+from rich.table import Table, box
+
+import twtw.config
+import twtw.taskw
 
 ROSS_ID = os.getenv('TEAMWORK_ID')
 
@@ -118,8 +119,8 @@ def get_description(title, annotation):
 def get_meta_from_tags(tags):
     task_data = twtw.taskw.TaskWarriorData()
     project = next((t for t in tags if t in task_data.projects))
-    project = tags.pop(tags.index(project)).upper().split('.')
-    print('project:', project, 'tags:', tags)
+    project = tags.pop(tags.index(project)).upper().split(".")
+    print("project:", project, "tags:", tags)
     orig_meta = dpath.util.get(META_MAP, project)
     meta = deepcopy(orig_meta)
     extra_tags = []
@@ -127,11 +128,11 @@ def get_meta_from_tags(tags):
         if def_tag := Tag.__dict__.get(t.upper(), None):
             extra_tags.append(def_tag)
         else:
-            if 'twtw:tag' in t:
-                extra_tags.append(t.split('twtw:tag:')[-1])
-    print('extra tags:', extra_tags)
-    meta.tags.extend(set([getattr(t, 'value', t) for t in extra_tags if t is not None]))
-    print('meta:', meta)
+            if "twtw:tag" in t:
+                extra_tags.append(t.split("twtw:tag:")[-1])
+    print("extra tags:", extra_tags)
+    meta.tags.extend(set([getattr(t, "value", t) for t in extra_tags if t is not None]))
+    print("meta:", meta)
     return meta
 
 
@@ -144,14 +145,14 @@ def create_teamwork_entry(data):
     start = dateparser.isoparse(data["start"]).astimezone()
     end = dateparser.isoparse(data["end"]).astimezone()
     delta = relativedelta(end, start)
-    tw_entry_id = next((t.split('twtw:id:')[-1] for t in tags if 'twtw:id' in t), None)
+    tw_entry_id = next((t.split("twtw:id:")[-1] for t in tags if "twtw:id" in t), None)
     base_uri = "***REMOVED***"
     endpoint = f"/projects/{meta.project}/time_entries.json"
     if meta.task:
         endpoint = f"/tasks/{meta.task}/time_entries.json"
     post_data = {
         "endpoint": base_uri + endpoint,
-        "tw-id": data.get('id', -1),
+        "tw-id": data.get("id", -1),
         "time-entry": {
             "description": desc,
             "person-id": str(USER_ID),
@@ -164,7 +165,7 @@ def create_teamwork_entry(data):
         },
     }
     if tw_entry_id:
-        post_data.setdefault('entry-id', tw_entry_id)
+        post_data.setdefault("entry-id", tw_entry_id)
     return post_data
 
 

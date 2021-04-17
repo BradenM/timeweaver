@@ -1,12 +1,12 @@
-import click
-from .teamwork import load_entries
 from pathlib import Path
-from . import (
-    recent as twrecent,
-    aggregate as twaggregate,
-    csv as twcsv,
-    config as twconfig,
-)
+
+import click
+
+from . import aggregate as twaggregate
+from . import config as twconfig
+from . import csv as twcsv
+from . import recent as twrecent
+from .teamwork import load_entries
 
 
 @click.group()
