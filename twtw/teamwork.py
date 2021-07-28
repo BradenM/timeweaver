@@ -59,6 +59,9 @@ class Tag(Enum):
     ***REMOVED*** = "***REMOVED***"
     ***REMOVED*** = "***REMOVED***"
     ***REMOVED*** = "***REMOVED***"
+    PT = "PT"
+    ***REMOVED*** = "***REMOVED***"
+    ***REMOVED*** = "***REMOVED***"
 
 
 EntryMeta = namedtuple("EntryMeta", ["project", "task", "tags"])
@@ -66,9 +69,10 @@ EntryMeta = namedtuple("EntryMeta", ["project", "task", "tags"])
 META_MAP = {
     "***REMOVED***": EntryMeta(Project.***REMOVED***.value, None, []),
     "***REMOVED***": {
+        "GENERAL": EntryMeta(Project.***REMOVED***.value, None, [Tag.***REMOVED***.value]),
         "***REMOVED***": EntryMeta(
             Project.***REMOVED***.value, Task.***REMOVED***.value, []
-        )
+        ),
     },
     "***REMOVED***": {
         "GENERAL": EntryMeta(
@@ -88,7 +92,11 @@ META_MAP = {
         "API": EntryMeta(Project.***REMOVED***.value, None, [Tag.***REMOVED***.value]),
         "APP": EntryMeta(Project.***REMOVED***.value, None, [Tag.***REMOVED***.value]),
     },
-    "ARROYODEV": {"GENERAL": EntryMeta(Project.ARROYODEV.value, None, [])},
+    "ARROYODEV": {
+        "GENERAL": EntryMeta(Project.ARROYODEV.value, None, []),
+        "***REMOVED***": EntryMeta(Project.ARROYODEV.value, None, []),
+        "***REMOVED***": EntryMeta(Project.ARROYODEV.value, None, [Tag.PT.value]),
+    },
     "***REMOVED***": {"GENERAL": EntryMeta(Project.***REMOVED***.value, None, [Tag.***REMOVED***.value])},
     "***REMOVED***": {
         "GENERAL": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value]),
@@ -96,6 +104,9 @@ META_MAP = {
     },
     "***REMOVED***": EntryMeta(Project.ARROYODEV.value, None, []),
     "***REMOVED***": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value]),
+    "***REMOVED***": {
+        "GENERAL": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value])
+    },
 }
 
 
