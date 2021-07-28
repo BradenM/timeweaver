@@ -1,51 +1,55 @@
+#!/usr/bin/env python3
+import re
 from pathlib import Path
+from typing import Optional, List
 
-import click
+import git
+import typer
+from rich import print
 
-from . import aggregate as twaggregate
-from . import config as twconfig
-from . import csv as twcsv
-from . import recent as twrecent
-from .teamwork import load_entries
+from twtw import (
+    aggregate as twaggregate,
+    config as twconfig,
+    csv as twcsv,
+    recent as twrecent,
+    tw,
+)
+from twtw.teamwork import load_entries
+
+app = typer.Typer()
 
 
-@click.group()
+@app.callback()
 def cli():
     """ArroyoDev Timewarrior Integration Entrypoint"""
 
 
-@cli.command()
-def recent():
+@app.command()
+def recent(days: Optional[float] = 3):
     """Preview recent entries."""
-    twrecent.get_recent()
+    twrecent.get_recent(days=days)
 
 
-@cli.command()
+@app.command()
 def aggregate():
     """Aggregate time entries.."""
     twaggregate.get_aggregates()
 
 
-@click.option("-c", "--commit", is_flag=True, default=False)
-@cli.command()
-def sync(commit=False):
+@app.command()
+def sync(commit: bool = False):
     """arroyoDev Timewarrior Integration Entrypoint"""
     load_entries(commit=commit)
 
 
-@click.option("-c", "--commit", is_flag=True, default=False)
-@click.argument(
-    "csv_path", type=click.Path(file_okay=True, dir_okay=False, exists=True)
-)
-@cli.command()
-def csv(csv_path, commit=False):
+@app.command()
+def csv(csv_path: Path, commit: bool = False):
     """arroyoDev CSV Teamwork integration entrypoint."""
     csv_path = Path(csv_path)
     twcsv.load_entries(csv_path, commit=commit)
 
 
-@click.argument("api_key")
-@cli.command()
+@app.command()
 def set_key(api_key: str):
     """Set Api Key."""
     config = twconfig.load_config()
@@ -54,4 +58,4 @@ def set_key(api_key: str):
 
 
 if __name__ == "__main__":
-    cli()
+    app()
