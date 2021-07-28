@@ -14,7 +14,7 @@ readme = ""
 setup(
     long_description=readme,
     name="timewarrior-teamwork",
-    version="0.1.1",
+    version="0.1.2",
     description="TimeWarrior plugin for integration with Teamwork",
     python_requires="==3.*,>=3.8.0",
     author="Braden Mars",
