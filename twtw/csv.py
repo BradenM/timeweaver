@@ -15,8 +15,13 @@ from rich.progress import track
 from rich.table import Table, box
 
 from twtw import config
-from twtw.teamwork import (DATE_FORMAT, META_MAP, TIME_FORMAT, EntryMeta,
-                           post_teamwork_entry)
+from twtw.teamwork import (
+    DATE_FORMAT,
+    META_MAP,
+    TIME_FORMAT,
+    EntryMeta,
+    post_teamwork_entry,
+)
 
 ROSS_ID = os.getenv('TEAMWORK_ID')
 
@@ -37,14 +42,26 @@ class CSVData:
     def end(self):
         return dateparser.parse(self.time_to).astimezone()
 
+    def _get_project_meta(self, activity: str) -> Optional[EntryMeta]:
+        with_gen = activity + ".GENERAL"
+        meta = dpath.util.get(META_MAP, with_gen, separator=".", default=None)
+        if not meta:
+            meta = dpath.util.get(META_MAP, activity, separator=".", default=None)
+        return meta
+
     @property
     def project_meta(self) -> EntryMeta:
-        meta_activity = self.activity.upper().strip()
-        meta_general = meta_activity + ".GENERAL"
-        meta = dpath.util.get(META_MAP, meta_general, separator=".", default=None)
-        print(self.activity, meta_general)
-        if not meta:
-            meta = dpath.util.get(META_MAP, meta_activity, separator=".", default=None)
+        meta_norm = self.activity.upper().strip()
+        meta_activity = "".join((p.upper().strip() for p in self.activity.split() if p))
+        meta_opts = [
+            self._get_project_meta(v)
+            for v in (
+                meta_activity,
+                meta_norm,
+            )
+        ]
+        meta = next((i for i in meta_opts if i), None)
+        print(self.activity, meta_opts, meta)
         if not meta:
             raise RuntimeError(f"No meta could be found for activity: {self.activity}")
         return meta
