@@ -14,16 +14,17 @@ readme = ""
 setup(
     long_description=readme,
     name="timewarrior-teamwork",
-    version="0.1.0",
+    version="0.1.1",
     description="TimeWarrior plugin for integration with Teamwork",
     python_requires="==3.*,>=3.8.0",
     author="Braden Mars",
     author_email="bradenmars@bradenmars.me",
-    entry_points={"console_scripts": ["twtw = twtw.cli:cli"]},
+    entry_points={"console_scripts": ["twtw = twtw.cli:app"]},
     packages=["timewarrior-teamwork", "timewarrior-teamwork.twtw"],
     package_dir={"timewarrior-teamwork": ""},
     package_data={
         "timewarrior-teamwork": [
+            "*.iml",
             "*.lock",
             "*.md",
             "*.toml",
@@ -31,11 +32,18 @@ setup(
         ]
     },
     install_requires=[
+        "attrs==21.*,>=21.2.0",
+        "boltons==20.*,>=20.2.1",
         "click==7.*,>=7.1.2",
+        "devtools==0.*,>=0.6.1",
         "dpath==2.*,>=2.0.1",
+        "gitpython==3.*,>=3.1.18",
         "python-dateutil==2.*,>=2.8.1",
         "python-dotenv==0.*,>=0.13.0",
         "requests==2.*,>=2.23.0",
         "rich==2.*,>=2.2.6",
+        "sh==1.*,>=1.14.1",
+        "typer==0.*,>=0.3.2",
     ],
+    extras_require={"dev": ["black==20.*,>=20.8.0.b1", "isort==5.*,>=5.8.0"]},
 )
