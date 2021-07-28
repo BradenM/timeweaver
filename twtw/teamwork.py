@@ -182,7 +182,7 @@ def create_teamwork_entry(data):
 
 def post_teamwork_entry(entry, con, is_timewarrior=True):
     endpoint = entry.pop("endpoint")
-    tw_id = entry.pop("tw-id")
+    tw_id = entry.pop("tw-id", None)
     env_path = Path(__file__).parent / ".env"
     load_dotenv(env_path)
     config = twtw.config.load_config()
