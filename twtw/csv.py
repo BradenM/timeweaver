@@ -14,14 +14,8 @@ from rich.console import Console
 from rich.progress import track
 from rich.table import Table, box
 
-from twtw import config
-from twtw.teamwork import (
-    DATE_FORMAT,
-    META_MAP,
-    TIME_FORMAT,
-    EntryMeta,
-    post_teamwork_entry,
-)
+from twtw.teamwork import (DATE_FORMAT, META_MAP, TIME_FORMAT, EntryMeta,
+                           post_teamwork_entry)
 
 ROSS_ID = os.getenv('TEAMWORK_ID')
 

@@ -1,6 +1,5 @@
 import json
 import subprocess as sp
-import sys
 
 from dateutil import parser as dparser
 from dateutil.relativedelta import relativedelta
