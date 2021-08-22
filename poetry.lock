@@ -637,7 +637,7 @@ tomli = ">=1.0.0,<2.0.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "6ae48bd0f2df40a47b4660263ed478f5f0410d69c0947cf36e22f066624adaad"
+content-hash = "d1f7e1f45905584d11c02dba3aef52dc03baee43242bcaee06512b63976464a0"
 
 [metadata.files]
 appdirs = [
