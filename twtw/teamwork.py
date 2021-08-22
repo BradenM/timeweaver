@@ -10,14 +10,12 @@ as logged.
 
 import json
 import subprocess as sp
-import sys
 from collections import namedtuple
 from copy import deepcopy
 from enum import Enum
 from pathlib import Path
 from time import sleep
 
-import click
 import dpath.util
 import requests
 from dateutil import parser as dateparser
@@ -123,7 +121,8 @@ def parse_input():
 def get_description(title, annotation):
     title_parts = [t.capitalize() for t in title.split(".")]
     formatted = " ".join(title_parts)
-    default_text = f"# {formatted}\n{annotation}"
+    anot = annotation.replace("<BR>", "\n")
+    default_text = f"# {formatted}\n{anot}"
     return default_text
 
 
