@@ -47,6 +47,31 @@ to = {format = "setuppy", path="setup.py"}
 [tool.ward]
 path = ["tests"]  # supply multiple paths using a list
 
+
+[tool.black]
+line-length = 100
+skip-string-normalization = false
+target-version = ['py39']
+include = '\.pyi?$'
+exclude = '''/(\.eggs|\.mpy_cache|\.direnv|build|dist|snippets)/'''
+
+[tool.isort]
+profile = "black"
+src_paths = ["twtw", "tests"]
+line_length = 100
+honor_noqa = true
+
+[tool.pydantic-mypy]
+warn-untyped-fields = true
+
+[tool.pydantic-pycharm-plugin]
+ignore-init-method-arguments = true
+
+[tool.mypy]
+plugins = "pydantic.mypy,tinydb.mypy_plugin"
+disallow_untyped_defs = true
+follow_imports = "normal"
+
 [build-system]
 requires = ["poetry>=0.12", "setuptools!=50.0", "wheel"]
 build-backend = "poetry.masonry.api"
