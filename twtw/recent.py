@@ -1,7 +1,5 @@
 #!/usr/bin/env python3.8
 
-import json
-import sys
 from datetime import timedelta
 
 import dateutil.tz as tz
@@ -12,17 +10,20 @@ from rich.table import Column, Table
 
 from . import taskw, tw
 
-DATE_FORMAT = "%Y-%m-%d"
+# DATE_FORMAT = "%Y-%m-%d"
+DATE_FORMAT = "%b %d (%a)"
 INTERVAL_FORMAT = "%H:%M"
 TIME_FORMAT = "%-I:%M%p"
 
 
-def get_recent_entries():
+def get_recent_entries(days=3):
     _, data = tw.parse_timewarrior(process=True)
     task_data = taskw.TaskWarriorData()
     for entry in data:
         if dutil.within_delta(
-            dutil.datetime.now(tz=tz.tzlocal()), entry["end"], timedelta(days=15)
+            dutil.datetime.now(tz=tz.tzlocal()),
+            entry["end"],
+            timedelta(hours=24 * days),
         ):
             time = f"{entry['interval'].hours}h {entry['interval'].minutes}m"
             desc = entry.get("annotation", entry["tags"][1])
@@ -46,7 +47,7 @@ def get_recent_entries():
             ]
 
 
-def get_recent():
+def get_recent(*args, **kwargs):
     con = Console()
 
     table = Table(
@@ -63,7 +64,7 @@ def get_recent():
         show_lines=True,
     )
     totals = (0, 0)
-    for hours, minutes, e in get_recent_entries():
+    for hours, minutes, e in get_recent_entries(*args, **kwargs):
         totals = (
             totals[0] + hours,
             totals[1] + minutes,
