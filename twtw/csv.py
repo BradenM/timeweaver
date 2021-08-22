@@ -14,8 +14,7 @@ from rich.console import Console
 from rich.progress import track
 from rich.table import Table, box
 
-from twtw.teamwork import (DATE_FORMAT, META_MAP, TIME_FORMAT, EntryMeta,
-                           post_teamwork_entry)
+from twtw.teamwork import DATE_FORMAT, META_MAP, TIME_FORMAT, EntryMeta, post_teamwork_entry
 
 ROSS_ID = os.getenv('TEAMWORK_ID')
 
@@ -137,9 +136,7 @@ def load_entries(csv_path: Path, commit=False):
             totals[0] + int(t_entry["hours"]),
             totals[1] + int(t_entry["minutes"]),
         )
-        table.add_row(
-            str(entry["entry-id"]), date, time, t_entry["description"], t_entry["tags"]
-        )
+        table.add_row(str(entry["entry-id"]), date, time, t_entry["description"], t_entry["tags"])
         if t_entry["hours"] == "0" and t_entry["minutes"] == "0":
             con.print(entry)
             con.print(

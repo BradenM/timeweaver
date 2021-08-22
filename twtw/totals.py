@@ -103,16 +103,12 @@ def calculate_totals(input_stream):
     if "temp.report.start" not in configuration:
         return ["There is no data in the database"]
 
-    start_utc = datetime.datetime.strptime(
-        configuration["temp.report.start"], DATEFORMAT
-    )
+    start_utc = datetime.datetime.strptime(configuration["temp.report.start"], DATEFORMAT)
     start_utc = start_utc.replace(tzinfo=from_zone)
     start = start_utc.astimezone(to_zone)
 
     if "temp.report.end" in configuration:
-        end_utc = datetime.datetime.strptime(
-            configuration["temp.report.end"], DATEFORMAT
-        )
+        end_utc = datetime.datetime.strptime(configuration["temp.report.end"], DATEFORMAT)
         end_utc = end_utc.replace(tzinfo=from_zone)
         end = end_utc.astimezone(to_zone)
     else:
@@ -120,25 +116,19 @@ def calculate_totals(input_stream):
 
     if len(totals) == 0 and untagged is None:
         return [
-            "No data in the range {:%Y-%m-%d %H:%M:%S} - {:%Y-%m-%d %H:%M:%S}".format(
-                start, end
-            )
+            "No data in the range {:%Y-%m-%d %H:%M:%S} - {:%Y-%m-%d %H:%M:%S}".format(start, end)
         ]
 
     # Compose report header.
     output = [
         "",
-        "Total by Tag, for {:%Y-%m-%d %H:%M:%S} - {:%Y-%m-%d %H:%M:%S}".format(
-            start, end
-        ),
+        "Total by Tag, for {:%Y-%m-%d %H:%M:%S} - {:%Y-%m-%d %H:%M:%S}".format(start, end),
         "",
     ]
 
     # Compose table header.
     if configuration["color"] == "on":
-        output.append(
-            "[4m{:{width}}[0m [4m{:>10}[0m".format("Tag", "Total", width=max_width)
-        )
+        output.append("[4m{:{width}}[0m [4m{:>10}[0m".format("Tag", "Total", width=max_width))
     else:
         output.append("{:{width}} {:>10}".format("Tag", "Total", width=max_width))
         output.append("{} {}".format("-" * max_width, "----------"))
@@ -163,9 +153,7 @@ def calculate_totals(input_stream):
     else:
         output.append("{} {}".format(" " * max_width, "----------"))
 
-    output.append(
-        "{:{width}} {:10}".format("Total", format_seconds(grand_total), width=max_width)
-    )
+    output.append("{:{width}} {:10}".format("Total", format_seconds(grand_total), width=max_width))
     output.append("")
 
     return output

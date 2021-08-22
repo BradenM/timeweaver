@@ -81,9 +81,7 @@ def changelog(
     if end_sha:
         sha_rng = f"{sha_rng}{end_sha}"
     commits = list(repo.iter_commits(sha_rng))
-    commits = list(
-        reversed([c for c in commits if c.author.email == "bradenmars@bradenmars.me"])
-    )
+    commits = list(reversed([c for c in commits if c.author.email == "bradenmars@bradenmars.me"]))
     print(f"[bright_white]Found [b]{len(commits)}[/b] commits.")
 
     _, data = tw.parse_timewarrior(process=True)
@@ -122,9 +120,7 @@ def changelog(
             for scope, types in scopes.items():
                 # scope_desc = f"## {scope.capitalize()}"
                 for type, titles in types.items():
-                    desc += subheader_tmpl.format(
-                        type=type.capitalize(), scope=scope, lb=lb
-                    )
+                    desc += subheader_tmpl.format(type=type.capitalize(), scope=scope, lb=lb)
                     for title in titles:
                         desc += f"  • {title.capitalize()}{lb}"
 

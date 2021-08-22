@@ -68,9 +68,7 @@ META_MAP = {
     "***REMOVED***": EntryMeta(Project.***REMOVED***.value, None, []),
     "***REMOVED***": {
         "GENERAL": EntryMeta(Project.***REMOVED***.value, None, [Tag.***REMOVED***.value]),
-        "***REMOVED***": EntryMeta(
-            Project.***REMOVED***.value, Task.***REMOVED***.value, []
-        ),
+        "***REMOVED***": EntryMeta(Project.***REMOVED***.value, Task.***REMOVED***.value, []),
     },
     "***REMOVED***": {
         "GENERAL": EntryMeta(
@@ -102,9 +100,7 @@ META_MAP = {
     },
     "***REMOVED***": EntryMeta(Project.ARROYODEV.value, None, []),
     "***REMOVED***": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value]),
-    "***REMOVED***": {
-        "GENERAL": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value])
-    },
+    "***REMOVED***": {"GENERAL": EntryMeta(Project.ARROYODEV.value, None, [Tag.***REMOVED***.value])},
 }
 
 
@@ -211,9 +207,7 @@ def load_entries(commit=False):
     con = Console()
     _, data = parse_input()
 
-    unlogged_entries = [
-        d for d in data if "logged" not in d["tags"] and "@work" in d["tags"]
-    ]
+    unlogged_entries = [d for d in data if "logged" not in d["tags"] and "@work" in d["tags"]]
     con.print(unlogged_entries)
     entries = [create_teamwork_entry(d) for d in unlogged_entries]
 
@@ -239,9 +233,7 @@ def load_entries(commit=False):
             totals[0] + int(t_entry["hours"]),
             totals[1] + int(t_entry["minutes"]),
         )
-        table.add_row(
-            str(entry["tw-id"]), date, time, t_entry["description"], t_entry["tags"]
-        )
+        table.add_row(str(entry["tw-id"]), date, time, t_entry["description"], t_entry["tags"])
         if t_entry["hours"] == "0" and t_entry["minutes"] == "0":
             con.print(entry)
             con.print(
