@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 import re
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 import git
 import typer
 from rich import print
 
-from twtw import (
-    aggregate as twaggregate,
-    config as twconfig,
-    csv as twcsv,
-    recent as twrecent,
-    tw,
-)
+from twtw import aggregate as twaggregate
+from twtw import config as twconfig
+from twtw import csv as twcsv
+from twtw import recent as twrecent
+from twtw import tw
 from twtw.teamwork import load_entries
 
 app = typer.Typer()
@@ -92,7 +90,7 @@ def changelog(
     data = [e for e in data if e["id"] in tag]
 
     conv_commit_pattern = re.compile(
-        r"^(?P<type>build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\((?P<scope>.+)\))?: (?P<title>.+$)"
+        r"^(?P<type>build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test|tests)(\((?P<scope>.+)\))?: (?P<title>.+$)"
     )
 
     dfmt = "%b %d"
