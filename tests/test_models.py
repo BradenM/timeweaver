@@ -5,6 +5,7 @@ from tempfile import mkdtemp
 from tinydb import Query
 from ward import fixture, test
 
+from twtw.db import TableState
 from twtw.models.config import Config
 
 
@@ -16,29 +17,30 @@ def tmp_path():
 
 
 @fixture
-def config(p: Path = tmp_path):
+def tmp_db(p: Path = tmp_path) -> Path:
     db_path = p / "db.json"
-    config = Config(db_path=db_path)
+    TableState.db_path = db_path
+    return db_path
+
+
+@fixture
+def tmp_cfg(p=tmp_db):
+    config = Config()
     yield config
 
 
-@test("sets db up")
-def _(p: Path = tmp_path):
-    db_path = p / "db.json"
-    config = Config(db_path=db_path)
-    assert config.db_path == db_path
-    assert config.db is not None
-    assert config.table is not None
-
-
 @test("creates config defaults")
-def _ca(cfg: Config = config):
+def _(cfg: Config = tmp_cfg):
     cfg.save()
     results = cfg.table.all()
     assert results
-    assert len(results) >= 2
+    assert cfg.table
+    default_prof = cfg.table.get(Query().PROFILE == "default")
+    assert default_prof
     for key in (
+        "TEAMWORK_HOST",
         "API_KEY",
         "GIT_USER",
     ):
-        assert cfg.table.contains(Query().key == key)
+        assert key in default_prof
+    assert isinstance(default_prof["GIT_USER"], str)
