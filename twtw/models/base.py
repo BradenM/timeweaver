@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Any, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, parse_obj_as
 from tinydb import Query
 from tinydb.queries import QueryLike
 from tinydb.table import Table
@@ -56,6 +56,6 @@ class TableModel(BaseModel):
     def load(self) -> "TableModel":
         data = self.table.get(self.query())
         if data:
-            loaded = self.copy(update=data, deep=True)
-            return loaded
+            _loaded = parse_obj_as(self.__class__, data)
+            return _loaded
         return self
