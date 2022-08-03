@@ -12,9 +12,15 @@ from twtw import config as twconfig
 from twtw import csv as twcsv
 from twtw import recent as twrecent
 from twtw import tw
+from twtw.app.config import app as config_app
+from twtw.app.log import app as log_app
+from twtw.app.project import app as project_app
 from twtw.teamwork import load_entries
 
 app = typer.Typer()
+app.add_typer(config_app, name="config")
+app.add_typer(project_app, name="project")
+app.add_typer(log_app, name="log")
 
 
 @app.callback()
