@@ -31,7 +31,7 @@ class CommitSerializer(Serializer):
         _repo_dir, commit_sha = s.split("@")
         _repo_path = Path(_repo_dir)
         repo = git.Repo(_repo_path)
-        print('getting commit from repo:', s, repo, commit_sha)
+        print("getting commit from repo:", s, repo, commit_sha)
         return repo.commit(commit_sha)
 
 

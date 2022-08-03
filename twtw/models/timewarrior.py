@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
-from typing import Optional, Callable, Iterator
+from typing import Callable, Iterator, Optional
 
 import sh
 from dateutil import parser as dparser
-
 from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel
 
@@ -42,9 +41,9 @@ class TimeRange(BaseModel):
             [
                 date_fmt.format(d)
                 for d in (
-                self.start,
-                self.end,
-            )
+                    self.start,
+                    self.end,
+                )
             ]
         )
 
@@ -109,7 +108,7 @@ class TimeWarriorEntry(BaseModel):
 
     @property
     def description(self) -> str:
-        _tags = ','.join(self.tags)
+        _tags = ",".join(self.tags)
         return f"{_tags}: {self.annotation}"
 
     def add_tags(self, *tags: str) -> "TimeWarriorEntry":
@@ -124,7 +123,6 @@ class TimeWarriorEntry(BaseModel):
 
     def __eq__(self, other):
         return isinstance(other, TimeWarriorEntry) and self.id == other.id
-
 
     def __str__(self):
         _tags = set(self.tags)

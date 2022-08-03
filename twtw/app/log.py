@@ -1,21 +1,22 @@
 from __future__ import annotations
+
+import itertools
 import time
 from collections import ChainMap
-from datetime import timedelta, datetime
-from typing import Callable, Iterator, Optional, TypeVar, List
+from datetime import datetime, timedelta
 from enum import Enum
+from typing import Callable, Iterator, List, Optional, TypeVar
 
 import attr
 import httpx
 import questionary
 import typer
 from pydantic import BaseModel
-import itertools
 from rich import print
-from rich.pretty import pprint, Pretty
-from rich.panel import Panel
+from rich.console import group
 from rich.layout import Layout
-from rich.console import Group, group, RichCast
+from rich.panel import Panel
+from rich.pretty import Pretty
 from tinydb import Query
 
 from twtw.db import TableState
@@ -28,7 +29,7 @@ from twtw.models.models import (
     TeamworkTimeEntryRequest,
     TeamworkTimeEntryResponse,
 )
-from twtw.models.timewarrior import TimeRange, TimeWarriorEntry
+from twtw.models.timewarrior import TimeWarriorEntry
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 T = TypeVar("T")
@@ -93,7 +94,7 @@ class EntryBuilder:
         return self.project.repos
 
     def iter_choices(
-            self, objs: list[T], key: Optional[Callable[[T], str]] = None
+        self, objs: list[T], key: Optional[Callable[[T], str]] = None
     ) -> Iterator[questionary.Choice]:
         get_key = key or str
         for e in objs:
@@ -130,16 +131,17 @@ class EntryBuilder:
                         return True
             return False
 
-
         def get_likely_commits(c: CommitEntry):
             if c is None:
                 print(c)
                 return str(c)
-            auth_xs = is_within_range(c.commit.authored_datetime,
-                                      [timedelta(hours=3), timedelta(hours=-3)])
+            auth_xs = is_within_range(
+                c.commit.authored_datetime, [timedelta(hours=3), timedelta(hours=-3)]
+            )
 
-            com_xs = is_within_range(c.commit.committed_datetime,
-                                      [timedelta(hours=3), timedelta(hours=-3)])
+            com_xs = is_within_range(
+                c.commit.committed_datetime, [timedelta(hours=3), timedelta(hours=-3)]
+            )
             if auth_xs:
                 print("got auth xs:", auth_xs)
                 return f"**{str(c)}"
@@ -174,13 +176,13 @@ class EntryBuilder:
             f"Total Seconds: {total_seconds}",
             f"Commits/Second: {commits_per_second}",
         ]
-        print('\n'.join(lines))
+        print("\n".join(lines))
 
         commits_iter = iter(commits)
         total_used = 0
         for entry in self.entries:
-            share = (entry.interval.timedelta.total_seconds()/total_seconds)
-            commit_share = round(share*total_commits)
+            share = entry.interval.timedelta.total_seconds() / total_seconds
+            commit_share = round(share * total_commits)
             commit_share = commit_share if commit_share > 0 else 1
             commits = list(itertools.islice(commits_iter, commit_share))
             total_used += len(commits)
@@ -190,13 +192,19 @@ class EntryBuilder:
         print(f"Distributed {total_used} of {total_commits} commits.")
 
         for missed_commit in commits_iter:
-            nearest_entry = next((i for i in self.entries if i.interval.contains_datetime(missed_commit.authored_datetime)), self.entries[0])
+            nearest_entry = next(
+                (
+                    i
+                    for i in self.entries
+                    if i.interval.contains_datetime(missed_commit.authored_datetime)
+                ),
+                self.entries[0],
+            )
             print(f"Allocating missed commit ({missed_commit}) to entry: ({nearest_entry})")
             entry_commits[nearest_entry].append(missed_commit)
 
         # print(entry_commits)
         return entry_commits
-
 
     def distribute_commits(self) -> iter["EntryBuilder"]:
         if not any(self.repos):
@@ -211,7 +219,7 @@ class EntryBuilder:
             for entry, commits in entry_commits.items():
                 print(f"\nEntry {str(entry)} -> {len(commits)} commits:")
                 rep_commits = [f"   {str(c)}" for c in commits]
-                print('\n'.join(rep_commits))
+                print("\n".join(rep_commits))
                 repo_commits = ChainMap(*[{self.project.repos_by_name[repo]: commits}])
                 yield self._copy(entries=[entry], repo_commits=repo_commits)
 
@@ -344,7 +352,6 @@ def do_create(name: str, dry_run: bool = False, mode: CommitMode = CommitMode.re
 
     for b in builds_to_commit:
         print(Panel(b.iter_entry_panels()))
-
 
     do_commit = typer.confirm("Commit all entries?", default=False)
 

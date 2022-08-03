@@ -3,19 +3,19 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from datetime import datetime
+from itertools import chain
 from pathlib import Path
 from typing import Any, Iterator, Optional, Pattern, Union
 from uuid import UUID
-from itertools import chain
 
 import git
 from mako.template import Template
 from pydantic import BaseModel, Field, validator
 from tinydb.queries import Query, QueryLike
-from twtw.models.timewarrior import TimeRange, TimeWarriorEntry
 from typing_extensions import Literal, TypeAlias
 
 from taskw import TaskWarrior
+from twtw.models.timewarrior import TimeRange, TimeWarriorEntry
 
 from .base import TableModel
 
@@ -207,7 +207,7 @@ class CommitEntry(TableModel):
         return str(self.commit.hexsha)
 
     def query(self) -> QueryLike:
-        return (Query().sha == self.sha)
+        return Query().sha == self.sha
 
     def save(self) -> None:
         _data = self.dict(exclude={"commit"})
@@ -251,8 +251,9 @@ class CommitEntry(TableModel):
         _logged = "[LOGGED] " if self.logged else ""
         _dtime = TimeRange.as_day_and_time(self.commit.authored_datetime)
         _dtime_com = TimeRange.as_day_and_time(self.commit.committed_datetime)
-        return "{logged}({dt}, com:{dtc}) {c.commit.summary}".format(logged=_logged, c=self,
-                                                                     dt=_dtime, dtc=_dtime_com)
+        return "{logged}({dt}, com:{dtc}) {c.commit.summary}".format(
+            logged=_logged, c=self, dt=_dtime, dtc=_dtime_com
+        )
 
 
 class LogEntry(TableModel):
@@ -279,15 +280,17 @@ class LogEntry(TableModel):
 
     @staticmethod
     def iter_scoped_repo_commits(
-            commits: dict[ProjectRepository, list[CommitEntry]],
+        commits: dict[ProjectRepository, list[CommitEntry]],
     ) -> Iterator[tuple[ProjectRepository, dict[str, dict[str, list[CommitEntry]]]]]:
         for repo, commit_entries in commits.items():
             yield repo, LogEntry.group_by_type_scope(commit_entries)
 
     @staticmethod
     def generate_changelog(
-            commits: dict[ProjectRepository, list[CommitEntry]], project: Project,
-            header: str = None, lb="\n"
+        commits: dict[ProjectRepository, list[CommitEntry]],
+        project: Project,
+        header: str = None,
+        lb="\n",
     ):
         repo_commits: dict[ProjectRepository, dict[str, list[CommitEntry]]] = {
             k: v for k, v in LogEntry.iter_scoped_repo_commits(commits)
