@@ -1,64 +1,40 @@
-from __future__ import annotations
-
+import datetime
 import json
-from datetime import datetime, timedelta
 from typing import Callable, Iterator, Optional
 
+import attrs
 import sh
 from dateutil import parser as dparser
-from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel
 
+from twtw.models import TimeRange
+from twtw.models.abc import EntryLoader, RawEntry
 
-class TimeRange(BaseModel):
-    start: datetime
-    end: datetime
 
-    def contains_datetime(self, other: datetime, buffer: timedelta = None) -> bool:
-        dt_buff = buffer or timedelta(seconds=0)
-        start = self.start - dt_buff
-        end = self.end + dt_buff
-        return start <= other <= end
-
+@attrs.define
+class TimeWarriorRawEntry(RawEntry):
     @property
-    def delta(self) -> relativedelta:
-        return relativedelta(self.end, self.start)
+    def is_logged(self) -> bool:
+        return "logged" in self.tags
 
-    @property
-    def timedelta(self) -> timedelta:
-        return self.end - self.start
 
-    @property
-    def duration(self) -> str:
-        fmt = "{}h {}m"
-        return fmt.format(self.delta.hours, self.delta.minutes)
+@attrs.define
+class TimeWarriorLoader(EntryLoader):
+    def load(self, *args, **kwargs) -> Iterator[dict[str, str]]:
+        tw: sh.Command = sh.Command("timew")
+        data_raw = tw.export().stdout.decode()
+        _data = json.loads(data_raw)
+        for item in _data:
+            if "@work" not in item["tags"]:
+                continue
+            yield item
 
-    @property
-    def span(self) -> str:
-        # date_fmt = '{:%-I}:{:%M}{:%p}'
-        date_fmt = "{:%-I:%M%p}"
-        return "-".join(
-            [
-                date_fmt.format(d)
-                for d in (
-                    self.start,
-                    self.end,
-                )
-            ]
-        )
-
-    @staticmethod
-    def as_day_and_time(in_dtime: datetime) -> str:
-        date_fmt = "{:%b %d %-I:%M%p}"
-        return date_fmt.format(in_dtime)
-
-    @staticmethod
-    def as_day(in_dtime: datetime) -> str:
-        return "{:%b %d}".format(in_dtime)
-
-    @property
-    def day(self) -> str:
-        return "{:%b %d}".format(self.start)
+    def process(self, data: dict[str, str], *args, **kwargs) -> TimeWarriorRawEntry | None:
+        start = dparser.isoparse(data["start"]).astimezone()
+        end = None
+        if end := data.pop("end", False):
+            end = dparser.isoparse(end).astimezone()
+        return TimeWarriorRawEntry(**data, start=start, end=end)
 
 
 class TimeWarriorEntry(BaseModel):
