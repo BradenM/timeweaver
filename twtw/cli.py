@@ -29,9 +29,9 @@ def cli():
 
 
 @app.command()
-def recent(days: Optional[float] = 3):
+def recent(days: Optional[float] = 3, unlogged: bool = False):
     """Preview recent entries."""
-    twrecent.get_recent(days=days)
+    twrecent.get_recent(days=days, unlogged=unlogged)
 
 
 @app.command()

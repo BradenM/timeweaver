@@ -16,11 +16,14 @@ INTERVAL_FORMAT = "%H:%M"
 TIME_FORMAT = "%-I:%M%p"
 
 
-def get_recent_entries(days=3):
+def get_recent_entries(days=3, unlogged=False):
     _, data = tw.parse_timewarrior(process=True)
     task_data = taskw.TaskWarriorData()
     for entry in data:
-        if dutil.within_delta(
+        is_logged = "logged" in entry["tags"]
+        if unlogged and is_logged:
+            continue
+        if unlogged is True or dutil.within_delta(
             dutil.datetime.now(tz=tz.tzlocal()),
             entry["end"],
             timedelta(hours=24 * days),
@@ -70,8 +73,14 @@ def get_recent(*args, **kwargs):
             totals[1] + minutes,
         )
         table.add_row(*[str(a) for a in e])
+
     hours, minutes = totals
     hours += minutes // 60
     minutes = minutes % 60
+
+    #days_range = days=kwargs.get('days', 3)
+    #delta_since = timedelta(days=-days_range)
+
     con.print(table)
     con.print(f"\n[white][bold]Total Time:[/bold] {hours}hrs {minutes}mins[/white]\n")
+
