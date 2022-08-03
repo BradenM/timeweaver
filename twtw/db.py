@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import attr
+import git
 from click import get_app_dir
 from tinydb import TinyDB
 from tinydb.storages import JSONStorage
@@ -18,10 +19,27 @@ class PathSerializer(Serializer):
         return Path(s)
 
 
+class CommitSerializer(Serializer):
+    OBJ_CLASS = git.Commit
+
+    def encode(self, obj: git.Commit) -> str:
+        _repo_dir = str(obj.repo.working_dir)
+        _commit_hash = "@".join([_repo_dir, str(obj)])
+        return _commit_hash
+
+    def decode(self, s: str) -> git.Commit:
+        _repo_dir, commit_sha = s.split("@")
+        _repo_path = Path(_repo_dir)
+        repo = git.Repo(_repo_path)
+        print('getting commit from repo:', s, repo, commit_sha)
+        return repo.commit(commit_sha)
+
+
 def create_db_storage() -> SerializationMiddleware:
     storage = SerializationMiddleware(JSONStorage)
     storage.register_serializer(PathSerializer(), "TinyPath")
     storage.register_serializer(DateTimeSerializer(), "TinyDate")
+    storage.register_serializer(CommitSerializer(), "TinyCommit")
     return storage
 
 
