@@ -15,7 +15,8 @@ from tinydb.queries import Query, QueryLike
 from typing_extensions import Literal, TypeAlias
 
 from taskw import TaskWarrior
-from twtw.models.timewarrior import TimeRange, TimeWarriorEntry
+from twtw.models.abc import RawEntry
+from twtw.models.timewarrior import TimeRange
 
 from .base import TableModel
 
@@ -257,7 +258,7 @@ class CommitEntry(TableModel):
 
 
 class LogEntry(TableModel):
-    time_entry: TimeWarriorEntry
+    time_entry: RawEntry
     project: Project
     taskw_uuid: Optional[UUID]
     teamwork_id: Optional[int]
