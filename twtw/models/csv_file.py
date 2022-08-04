@@ -42,8 +42,8 @@ class CSVEntryLoader(EntryLoader):
         end = dparser.parse(data["To"]).astimezone()
         return CSVRawEntry(
             id=data["id"],
-            tags=[data["Activity type"]],
+            tags=[data["Activity type"].strip()],
             start=start,
             end=end,
-            annotation=data["Comment"],
+            annotation=data["Comment"].strip(),
         )
