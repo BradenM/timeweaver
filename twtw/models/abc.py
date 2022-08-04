@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-import datetime
+from datetime import datetime
 from typing import Iterable, TypeVar
 
 import attrs
@@ -86,4 +86,4 @@ class EntriesSource:
         return [e for e in self.loader.entries if not e.is_logged and not e.is_active]
 
     def unlogged_by_project(self, project_name: str):
-        return [e for e in self.unlogged_entries if project_name not in e.tags]
+        return [e for e in self.unlogged_entries if project_name in e.tags]
