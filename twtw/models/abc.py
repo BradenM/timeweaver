@@ -49,6 +49,15 @@ class RawEntry(abc.ABC):
     def is_logged(self) -> bool:
         ...
 
+    @abc.abstractmethod
+    def add_tag(self, value: str) -> RawEntry:
+        ...
+
+    def add_tags(self, *values: str) -> RawEntry:
+        for v in values:
+            self.add_tag(v)
+        return self
+
 
 @attrs.define
 class EntryLoader(abc.ABC):
