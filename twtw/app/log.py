@@ -5,6 +5,7 @@ import time
 from collections import ChainMap
 from datetime import datetime, timedelta
 from enum import Enum
+from pathlib import Path
 from typing import Callable, Iterator, List, Optional, TypeVar
 
 import attr
@@ -30,6 +31,7 @@ from twtw.models.models import (
     TeamworkTimeEntryResponse,
 )
 from twtw.models.timewarrior import TimeWarriorEntry
+from twtw.state.entry import CSVCreateEntryFlow
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 T = TypeVar("T")
@@ -60,6 +62,7 @@ class EntryBuilder:
     """
 
     project: Project
+    # entries_source: EntriesSource
     entries: list[TimeWarriorEntry] = attr.ib()
     repos: list[ProjectRepository] = attr.ib()
     repo_commits: ChainMap[ProjectRepository, list[CommitEntry]] = attr.ib(factory=ChainMap)
@@ -75,6 +78,7 @@ class EntryBuilder:
         _attrs = {
             "project": self.project,
             "entries": self.entries,
+            # "entries_source": self.entries_source,
             "repos": self.repos,
             "repo_commits": self.repo_commits,
             "log_entries": self.log_entries,
@@ -88,6 +92,10 @@ class EntryBuilder:
     @entries.default
     def resolve_entries(self) -> list[TimeWarriorEntry]:
         return list(reversed(list(TimeWarriorEntry.unlogged_by_project(self.project.name))))
+
+    # @classmethod
+    # def from_source(cls, entries_source: EntriesSource) -> EntryBuilder:
+    #     return cls(entries_source=entries_source)
 
     @repos.default
     def resolve_repos(self) -> list[ProjectRepository]:
@@ -416,3 +424,16 @@ def do_list(project_name: str = None, synced: bool = None):
     tbl = TableState.db.table(LogEntry.__name__)
     items = tbl.search(bquery)
     print(items)
+
+
+@app.command(name="csv")
+def do_csv(project_name: str, csv_path: Path, commit: bool = False):
+    project = Project(name=project_name).load()
+    flow = CSVCreateEntryFlow(project=project, path=csv_path)
+    flow.start()
+    if commit is False:
+        flow.dry_run = True
+    flow.choose()
+    flow.choose()
+    flow.choose()
+    print("[b bright_green]Done!")
