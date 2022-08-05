@@ -2,11 +2,37 @@ from pathlib import Path
 
 import attr
 import git
+import orjson
 from click import get_app_dir
 from tinydb import TinyDB
 from tinydb.storages import JSONStorage
 from tinydb_serialization import SerializationMiddleware, Serializer
 from tinydb_serialization.serializers import DateTimeSerializer
+
+from twtw.models.abc import RawEntry
+
+
+class RawEntrySerializer(Serializer):
+    OBJ_CLASS = RawEntry
+
+    def encode(self, obj: RawEntry) -> str:
+        fields = attr.asdict(obj, recurse=True)
+        entry_type = obj.__class__.__name__
+        return (orjson.dumps(fields | dict(_class=entry_type))).decode()
+
+    def decode(self, s: str) -> RawEntry:
+        data = orjson.loads(s.encode())
+        # todo: subclass registry
+        entry_type = data.pop("_class")
+        if entry_type == "CSVRawEntry":
+            from twtw.models.csv_file import CSVRawEntry
+
+            return CSVRawEntry(**data)
+        if entry_type == "TimeWarriorRawEntry":
+            from twtw.models.timewarrior import TimeWarriorRawEntry
+
+            return TimeWarriorRawEntry(**data)
+        raise TypeError("No raw entry type found!")
 
 
 class PathSerializer(Serializer):
@@ -40,6 +66,7 @@ def create_db_storage() -> SerializationMiddleware:
     storage.register_serializer(PathSerializer(), "TinyPath")
     storage.register_serializer(DateTimeSerializer(), "TinyDate")
     storage.register_serializer(CommitSerializer(), "TinyCommit")
+    storage.register_serializer(RawEntrySerializer(), "TinyRawEntry")
     return storage
 
 
