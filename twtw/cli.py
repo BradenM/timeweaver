@@ -9,7 +9,6 @@ from rich import print
 
 from twtw import aggregate as twaggregate
 from twtw import config as twconfig
-from twtw import csv as twcsv
 from twtw import recent as twrecent
 from twtw import tw
 from twtw.app.config import app as config_app
@@ -46,11 +45,11 @@ def sync(commit: bool = False):
     load_entries(commit=commit)
 
 
-@app.command()
-def csv(csv_path: Path, commit: bool = False):
-    """arroyoDev CSV Teamwork integration entrypoint."""
-    csv_path = Path(csv_path)
-    twcsv.load_entries(csv_path, commit=commit)
+# @app.command()
+# def csv(csv_path: Path, commit: bool = False):
+#     """arroyoDev CSV Teamwork integration entrypoint."""
+#     csv_path = Path(csv_path)
+#     twcsv.load_entries(csv_path, commit=commit)
 
 
 @app.command()
