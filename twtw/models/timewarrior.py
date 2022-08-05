@@ -19,6 +19,12 @@ class TimeWarriorRawEntry(RawEntry):
     def is_logged(self) -> bool:
         return "logged" in self.tags
 
+    def add_tag(self, value: str) -> TimeWarriorRawEntry:
+        tw: sh.Command = sh.Command("timew")
+        tw.tag(f"@{self.id}", value)
+        self.tags.append(value)
+        return self
+
 
 @attrs.define
 class TimeWarriorLoader(EntryLoader):

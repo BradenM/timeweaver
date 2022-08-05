@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import csv
 from pathlib import Path
 from typing import Iterator, TypedDict
@@ -19,6 +21,9 @@ class CSVRawEntry(RawEntry):
     @property
     def is_logged(self) -> bool:
         return False
+
+    def add_tag(self, value: str) -> CSVRawEntry:
+        return self
 
 
 @attrs.define
