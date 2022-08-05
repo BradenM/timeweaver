@@ -5,12 +5,13 @@ from collections import defaultdict
 from datetime import datetime
 from itertools import chain
 from pathlib import Path
-from typing import Any, Iterator, Optional, Pattern, Union
+from typing import TYPE_CHECKING, Any, Iterator, Optional, Pattern, Union
 from uuid import UUID
 
 import git
 from mako.template import Template
 from pydantic import BaseModel, Field, validator
+from rich.table import Table
 from tinydb.queries import Query, QueryLike
 from typing_extensions import Literal, TypeAlias
 
@@ -19,6 +20,9 @@ from twtw.models.abc import RawEntry
 from twtw.models.timewarrior import TimeRange
 
 from .base import TableModel
+
+if TYPE_CHECKING:
+    from rich.console import Console, ConsoleOptions, RenderResult
 
 TWTaskStatus: TypeAlias = Literal["pending", "completed"]
 
@@ -306,6 +310,26 @@ class LogEntry(TableModel):
             commit.logged = True
             commit.save()
         super().save()
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        yield f"[b]Log Entry:[/b] #{self.time_entry.id} [bright_white i]({self.project.name})[/]"
+        table = Table("Attribute", "Value")
+        intv = self.time_entry.interval
+        table.add_row("Date", intv.day)
+        table.add_row("Time", intv.span)
+        table.add_row("Duration", intv.duration)
+        table.add_row("Description", self.description)
+        table.add_row(
+            "Tags",
+            ", ".join(
+                list(set(self.time_entry.tags) - {self.project.resolve_teamwork_project().name})
+            ),
+        )
+        if self.teamwork_id:
+            tw_proj = self.project.resolve_teamwork_project()
+            table.add_row("[bright_green bold]Teamwork Project[/]", tw_proj.name)
+            table.add_row("[bright_green bold]Teamwork Log ID[/]", str(self.teamwork_id))
+        yield table
 
 
 Project.update_forward_refs()
