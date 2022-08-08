@@ -1,3 +1,3 @@
-from .ui import Prompter, QuestionaryPrompter, Reporter
+from .ui import Prompter, Reporter
 
-__all__ = ["Prompter", "Reporter", "QuestionaryPrompter"]
+__all__ = ["Prompter", "Reporter"]
