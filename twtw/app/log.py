@@ -427,13 +427,15 @@ def do_list(project_name: str = None, synced: bool = None):
 
 
 @app.command(name="csv")
-def do_csv(project_name: str, csv_path: Path, commit: bool = False):
-    project = Project(name=project_name).load()
-    flow = CSVCreateEntryFlow(project=project, path=csv_path)
-    flow.start()
-    if commit is False:
-        flow.dry_run = True
-    flow.choose()
-    flow.choose()
-    flow.choose()
-    print("[b bright_green]Done!")
+def do_csv(csv_path: Path, commit: bool = False):
+    try:
+        flow = CSVCreateEntryFlow(path=csv_path)
+        flow.start()
+        if commit is False:
+            flow.dry_run = True
+        flow.choose()
+        flow.choose()
+    except Exception as e:
+        print(e)
+    else:
+        print(":tada:  [b bright_green]Done!")
