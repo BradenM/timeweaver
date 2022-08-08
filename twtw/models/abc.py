@@ -25,12 +25,21 @@ class RawEntry(abc.ABC):
     def __str__(self):
         _tags = set(self.tags)
         _tags -= {"@work"}
-        _annotation = ""
-        if self.annotation:
-            _annotation = f"- '{self.annotation}'"
+        _annot = "- '{}'".format(self.truncated_annotation()) if self.annotation else ""
         _tags = ", ".join(_tags)
         return "@{s.id} ({s.interval.day}, {s.interval.duration}, {s.interval.span}): {tags} {annot}".format(
-            s=self, tags=_tags, annot=_annotation
+            s=self, tags=_tags, annot=_annot
+        )
+
+    def truncated_annotation(self, length: int = 20) -> str:
+        return (
+            "{:.<{elip}.{len}}".format(
+                self.annotation,
+                elip=length + 3 if len(self.annotation) >= length else len(self.annotation),
+                len=length,
+            )
+            if self.annotation
+            else ""
         )
 
     @property
