@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import abc
 from datetime import datetime
-from typing import Iterable, TypeVar
+from typing import TYPE_CHECKING, Iterable, TypeVar
 
 import attrs
 
 from twtw.models import TimeRange
+
+if TYPE_CHECKING:
+    from twtw.models.models import Project
 
 RawEntryData = TypeVar("RawEntryData", bound=dict)
 
@@ -47,6 +50,10 @@ class RawEntry(abc.ABC):
     @property
     @abc.abstractmethod
     def is_logged(self) -> bool:
+        ...
+
+    @abc.abstractmethod
+    def is_project(self, project: Project) -> bool:
         ...
 
     @abc.abstractmethod
@@ -94,5 +101,5 @@ class EntriesSource:
     def unlogged_entries(self) -> list[RawEntry]:
         return [e for e in self.loader.entries if not e.is_logged and not e.is_active]
 
-    def unlogged_by_project(self, project_name: str):
-        return [e for e in self.unlogged_entries if project_name in e.tags]
+    def unlogged_by_project(self, project: Project):
+        return [e for e in self.unlogged_entries if e.is_project(project)]

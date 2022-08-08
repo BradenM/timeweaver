@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import Iterator, TypedDict
+from typing import TYPE_CHECKING, Iterator, TypedDict
 
 import attrs
 from dateutil import parser as dparser
 
 from twtw.models.abc import EntryLoader, RawEntry
+
+if TYPE_CHECKING:
+    from twtw.models.models import Project
 
 CSVRawData = TypedDict(
     "CSVRawData",
@@ -22,7 +25,12 @@ class CSVRawEntry(RawEntry):
     def is_logged(self) -> bool:
         return False
 
-    def add_tag(self, value: str) -> CSVRawEntry:
+    def is_project(self, project: Project) -> bool:
+        if (teamw_project := project.resolve_teamwork_project()) is None:
+            return False
+        return teamw_project.name in self.tags
+
+    def add_tag(self, *_) -> CSVRawEntry:
         return self
 
 

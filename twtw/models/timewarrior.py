@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Callable, Iterator, Optional
+from typing import TYPE_CHECKING, Callable, Iterator, Optional
 
 import attrs
 import sh
@@ -12,12 +12,18 @@ from pydantic import BaseModel
 from twtw.models import TimeRange
 from twtw.models.abc import EntryLoader, RawEntry
 
+if TYPE_CHECKING:
+    from twtw.models.models import Project
+
 
 @attrs.define
 class TimeWarriorRawEntry(RawEntry):
     @property
     def is_logged(self) -> bool:
         return "logged" in self.tags
+
+    def is_project(self, project: Project) -> bool:
+        return project.name in self.tags
 
     def add_tag(self, value: str) -> TimeWarriorRawEntry:
         tw: sh.Command = sh.Command("timew")
