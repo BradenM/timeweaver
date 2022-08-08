@@ -6,6 +6,7 @@ from typing import List, Optional
 import git
 import typer
 from rich import print
+from rich.traceback import install
 
 from twtw import aggregate as twaggregate
 from twtw import config as twconfig
@@ -15,6 +16,8 @@ from twtw.app.config import app as config_app
 from twtw.app.log import app as log_app
 from twtw.app.project import app as project_app
 from twtw.teamwork import load_entries
+
+install(show_locals=True, suppress=["typer", "click", "transitions"])
 
 app = typer.Typer()
 app.add_typer(config_app, name="config")
