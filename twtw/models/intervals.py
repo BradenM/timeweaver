@@ -6,7 +6,7 @@ import attrs
 from dateutil.relativedelta import relativedelta
 
 
-@attrs.define
+@attrs.define(frozen=True)
 class TimeRange:
     start: datetime
     end: datetime
@@ -31,12 +31,17 @@ class TimeRange:
         return fmt.format(self.delta.hours, self.delta.minutes)
 
     @property
+    def padded_duration(self) -> str:
+        fmt = "{:2}h {:2}m"
+        return fmt.format(self.delta.hours, self.delta.minutes)
+
+    @property
     def span(self) -> str:
         # date_fmt = '{:%-I}:{:%M}{:%p}'
         date_fmt = "{:%-I:%M%p}"
         return "-".join(
             [
-                date_fmt.format(d)
+                "{:6}".format(date_fmt.format(d))
                 for d in (
                     self.start,
                     self.end,
@@ -56,3 +61,33 @@ class TimeRange:
     @property
     def day(self) -> str:
         return "{:%b %d}".format(self.start)
+
+
+@attrs.define(frozen=True)
+class IntervalAggregator:
+    intervals: set[TimeRange] = attrs.field(factory=set)
+
+    def add(self, interval: TimeRange) -> IntervalsAggregate:
+        return attrs.evolve(self, intervals=self.intervals | {interval})
+
+    def remove(self, interval: TimeRange) -> IntervalsAggregate:
+        return attrs.evolve(self, intervals=self.intervals - {interval})
+
+    @property
+    def relative_deltas(self) -> list[relativedelta]:
+        return [i.delta.normalized() for i in self.intervals]
+
+    @property
+    def delta(self) -> relativedelta | None:
+        if not self.relative_deltas:
+            return None
+        deltas = self.relative_deltas.copy()
+        _delta = deltas.pop()
+        for d in deltas:
+            _delta += d
+        return _delta
+
+    @property
+    def duration(self) -> str:
+        fmt = "{}h {}m"
+        return fmt.format(self.delta.hours, self.delta.minutes)
