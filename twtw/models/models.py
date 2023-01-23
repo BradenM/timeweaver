@@ -73,6 +73,14 @@ class ProjectRepository(TableModel):
     def git_repo(self) -> git.Repo:
         return git.Repo(self.path)
 
+    @classmethod
+    def from_git_repo(cls, git_repo: git.Repo) -> "ProjectRepository":
+        path = Path(git_repo.working_dir).absolute()
+        query = Query().path == path
+        if res := cls.table_of().get(query):
+            return cls(**res)
+        raise ValueError(f"No ProjectRepository found at working dir: {path}")
+
     def iter_commits_by_author(self, author_email: str) -> Iterator[CommitEntry]:
         for commit in self.git_repo.iter_commits(max_count=350):
             if commit.author.email == author_email:
