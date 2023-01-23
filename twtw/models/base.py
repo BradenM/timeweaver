@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Any, Union
 
+from loguru import logger
 from pydantic import BaseModel, parse_obj_as
 from tinydb import Query
 from tinydb.queries import QueryLike
@@ -51,11 +52,19 @@ class TableModel(BaseModel):
 
     def save(self) -> None:
         _data = self.dict()
+        logger.debug("[b]{}[/]: upserting (data={})", self.__class__.__name__, _data)
         self.table.upsert(_data, cond=self.query())
 
     def load(self) -> "TableModel":
-        data = self.table.get(self.query())
+        query = self.query()
+        data = self.table.get(query)
         if data:
+            logger.debug(
+                "[b]{}[/]: loading from table (query={}, data={})",
+                self.__class__.__name__,
+                query,
+                data,
+            )
             _loaded = parse_obj_as(self.__class__, data)
             return _loaded
         return self
