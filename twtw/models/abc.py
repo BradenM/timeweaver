@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Iterable, TypeVar
 import attrs
 
 from twtw.models import TimeRange
+from twtw.utils import truncate
 
 if TYPE_CHECKING:
     from twtw.models.models import Project
@@ -33,15 +34,7 @@ class RawEntry(abc.ABC):
         )
 
     def truncated_annotation(self, length: int = 20) -> str:
-        return (
-            "{:.<{elip}.{len}}".format(
-                self.annotation,
-                elip=length + 3 if len(self.annotation) >= length else len(self.annotation),
-                len=length,
-            )
-            if self.annotation
-            else ""
-        )
+        return truncate(self.annotation, length=length)
 
     @property
     def is_active(self) -> bool:

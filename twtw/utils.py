@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import itertools
 from typing import Any, Callable, Protocol, Sequence, TypeVar
 
@@ -26,4 +28,16 @@ def group_by(in_seq: Sequence[Value], key_fn: Callable[[Value], Key]) -> dict[Ke
     return dict(
         (key, list(group))
         for key, group in itertools.groupby(sorted(in_seq, key=key_fn), key=key_fn)
+    )
+
+
+def truncate(content: str, length: int = 20):
+    return (
+        "{:.<{elip}.{len}}".format(
+            content,
+            elip=length + 3 if len(content) >= length else len(content),
+            len=length,
+        )
+        if content
+        else ""
     )
