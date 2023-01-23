@@ -23,7 +23,7 @@ class TimeWarriorRawEntry(RawEntry):
         return "logged" in self.tags
 
     def is_project(self, project: Project) -> bool:
-        return project.name in self.tags
+        return project.name.lower() in self.tags
 
     def add_tag(self, value: str) -> TimeWarriorRawEntry:
         tw: sh.Command = sh.Command("timew")
@@ -38,16 +38,25 @@ class TimeWarriorLoader(EntryLoader):
         tw: sh.Command = sh.Command("timew")
         data_raw = tw.export().stdout.decode()
         _data = json.loads(data_raw)
+        filters = kwargs.pop("filters", [])
         for item in _data:
             if "@work" not in item["tags"]:
+                continue
+            if any((filt(item)) for filt in filters):
                 continue
             yield item
 
     def process(self, data: dict[str, str], *args, **kwargs) -> TimeWarriorRawEntry | None:
-        start = dparser.isoparse(data["start"]).astimezone()
-        end = None
+        start = dparser.isoparse(data.pop("start")).astimezone()
         if end := data.pop("end", False):
             end = dparser.isoparse(end).astimezone()
+        if project_tags := kwargs.get("project_tags", None):
+            project_tags = [t.lower() for t in project_tags]
+            tags = set(data.get("tags", []).copy())
+            project_tag = next((i for i in tags if i.lower() in project_tags))
+            tags -= {"@work", project_tag}
+            annot = ", ".join(tags)
+            data.setdefault("annotation", annot)
         return TimeWarriorRawEntry(**data, start=start, end=end)
 
 
