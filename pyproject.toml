@@ -21,7 +21,7 @@ dpath = "^2.0.1"
 click = "^8.1.3"
 boltons = "^20.2.1"
 sh = "^1.14.1"
-typer = {version = "^0.6.1", extras = ["all"]}
+typer = {version = "^0.7.0", extras = ["all"]}
 attrs = "^22.1.0"
 devtools = "^0.6.1"
 GitPython = "^3.1.27"
@@ -35,21 +35,21 @@ orjson = "^3.6.3"
 httpx = "^0.19.0"
 questionary = "^1.10.0"
 Mako = "^1.1.5"
-transitions = "^0.8.11"
+transitions = "^0.9.0"
 loguru = "^0.6.0"
 
-[tool.poetry.dev-dependencies]
+
+[tool.poetry.group.dev.dependencies]
 black = "^22.6.0"
 isort = "^5.9.3"
 pre-commit = "^2.14.0"
 autoflake = "^1.4"
-ward = "^0.66.1-beta.0"
 rope = "^1.3.0"
 mypy = "^0.971"
 jedi = "^0.18.1"
 pydocstyle = "^6.1.1"
 pdbpp = "^0.10.3"
-
+ward = "^0.67.0b0"
 
 [tool.ward]
 path = ["tests"]  # supply multiple paths using a list
