@@ -27,8 +27,9 @@ class HasMultiSelect(Protocol):
         self,
         items: Iterable[ChoiceT],
         *,
-        key: ChoiceKeyFunc = None,
-        disabled: Callable[[ChoiceT], str] = None,
+        key: ChoiceKeyFunc | None = None,
+        disabled: Callable[[ChoiceT], str] | None = None,
+        checked: Callable[[ChoiceT], bool] | None = None,
     ) -> Iterable[ChoiceT | Any]:
         ...
 
@@ -37,8 +38,10 @@ class HasMultiSelect(Protocol):
         items: Iterable[ChoiceT],
         *,
         title: str = None,
-        key: ChoiceKeyFunc = None,
+        key: ChoiceKeyFunc | None = None,
         disabled: Callable[[ChoiceT], str] = None,
+        checked: Callable[[ChoiceT], bool] | None = None,
+        style: questionary.Style = None,
     ) -> Iterable[ChoiceT | Any] | Any:
         ...
 
@@ -67,25 +70,30 @@ class QuestionaryMultiSelect(QuestionaryPrompt, HasMultiSelect):
         self,
         items: Iterable[ChoiceT],
         *,
-        key: ChoiceKeyFunc = None,
-        disabled: Callable[[ChoiceT], str] = None,
+        key: ChoiceKeyFunc | None = None,
+        disabled: Callable[[ChoiceT], str] | None = None,
+        checked: Callable[[ChoiceT], bool] | None = None,
     ) -> Iterable[questionary.Choice]:
         get_key = key or str
         disabled = disabled or (lambda _: None)
+        checked = checked or (lambda _: False)
         for i in items:
-            yield questionary.Choice(title=get_key(i) or "", value=i, disabled=disabled(i))
+            yield questionary.Choice(
+                title=get_key(i) or "", value=i, disabled=disabled(i), checked=checked(i)
+            )
 
     def create_multiselect(
         self,
         items: Iterable[ChoiceT],
         *,
         title: str = None,
-        key: ChoiceKeyFunc = None,
-        disabled: Callable[[ChoiceT], str] = None,
+        key: ChoiceKeyFunc | None = None,
+        disabled: Callable[[ChoiceT], str] | None = None,
+        checked: Callable[[ChoiceT], bool] | None = None,
         style: questionary.Style = None,
     ) -> questionary.Question:
         styles = style or questionary.Style([("disabled", "fg:#E32636 italic bold")])
-        choices = self.create_choices(items, key=key, disabled=disabled)
+        choices = self.create_choices(items, key=key, disabled=disabled, checked=checked)
         return questionary.checkbox(title or "Choose", choices=list(choices), style=styles)
 
 
