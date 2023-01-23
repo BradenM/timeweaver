@@ -15,6 +15,7 @@ from twtw import tw
 from twtw.app.config import app as config_app
 from twtw.app.log import app as log_app
 from twtw.app.project import app as project_app
+from twtw.logger import VerbosityLevel, configure_log
 from twtw.teamwork import load_entries
 
 install(show_locals=True, suppress=["typer", "click", "transitions"])
@@ -24,9 +25,20 @@ app.add_typer(config_app, name="config")
 app.add_typer(project_app, name="project")
 app.add_typer(log_app, name="log")
 
+# VerbosityOption: int = typer.Option(int(VerbosityLevel.ERROR), '--verbose', '-v', count=True, max=int(VerbosityLevel.ALL), callback=configure_log)
 
-@app.callback()
-def cli():
+
+@app.callback(no_args_is_help=True)
+def cli(
+    verbosity: int = typer.Option(
+        VerbosityLevel.ERROR,
+        "--verbose",
+        "-v",
+        callback=configure_log,
+        count=True,
+        max=VerbosityLevel.ALL,
+    )
+):
     """ArroyoDev Timewarrior Integration Entrypoint"""
 
 
