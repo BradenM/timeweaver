@@ -49,6 +49,9 @@ class ProjectRepository(TableModel):
     path: Path
     name: Optional[str]
 
+    def __lt__(self, other):
+        return self.name < other.name
+
     @validator("path", pre=True, always=True)
     def validate_path(cls, v: Union[str, Path]) -> Path:
         try:
@@ -69,6 +72,11 @@ class ProjectRepository(TableModel):
     @property
     def git_repo(self) -> git.Repo:
         return git.Repo(self.path)
+
+    def iter_commits_by_author(self, author_email: str) -> Iterator[CommitEntry]:
+        for commit in self.git_repo.iter_commits(max_count=350):
+            if commit.author.email == author_email:
+                yield CommitEntry.parse_commit(commit)
 
     def __hash__(self):
         return hash(self.path)
