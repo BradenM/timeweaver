@@ -102,7 +102,7 @@ class CSVCreateEntryFlow(BaseCreateEntryFlow):
         self.context.flags |= FlowModifier.ENTRIES_SELECTED
 
     def create_drafts(self, event: EventData):  # noqa
-        self.entry_machine.dispatch("next")
+        pass
 
     def review_drafts(self, event: EventData):  # noqa
         table_width = round(self.reporter.console.width // 1.15)
@@ -162,18 +162,3 @@ class CSVCreateEntryFlow(BaseCreateEntryFlow):
             )
         )
 
-    def confirm_drafts(self, event: EventData):
-        if self.dry_run:
-            return
-        if not self.reporter.prompt.confirm("Commit valid entries?"):
-            self.cancel("Canceled by user.")
-
-    def commit_drafts(self, event: EventData):  # noqa
-        self.entry_machine.dispatch("next")
-        if self.dry_run:
-            self.reporter.console.print(
-                "[bright_black][bold](DRY RUN)[/bold] Pass [bright_white bold]--commit[/bright_white bold] to submit logs."
-            )
-            return
-        self.reporter.console.print(":stopwatch:  [bold bright_white]Committing Entries...")
-        self.entry_machine.dispatch("next")

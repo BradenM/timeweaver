@@ -164,6 +164,8 @@ class EntryFlowModel:
 
 @attrs.define
 class AbstractEntryFlow(abc.ABC):
+    FlowModifier: ClassVar[FlowModifier] = FlowModifier
+
     machine: Machine = attrs.field()
     context: EntryContext = attrs.field(default=None)
     reporter: Reporter = attrs.field(factory=Reporter)
@@ -188,6 +190,14 @@ class AbstractEntryFlow(abc.ABC):
 
     @abc.abstractmethod
     def review_drafts(self, event: EventData) -> None:
+        ...
+
+    @abc.abstractmethod
+    def confirm_drafts(self, event: EventData) -> None:
+        ...
+
+    @abc.abstractmethod
+    def commit_drafts(self, event: EventData) -> None:
         ...
 
     @classmethod
@@ -234,13 +244,14 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
             trigger="choose",
             source=CreateFlowState.REPOS,
             dest=CreateFlowState.COMMITS,
-            after="choose_commits",
             conditions=["are_commits_available"],
+            before="choose_commits",
         )
         machine.add_transition(
             trigger="choose",
             source=[CreateFlowState.ENTRIES, CreateFlowState.REPOS, CreateFlowState.COMMITS],
             dest=CreateFlowState.DRAFT,
+            prepare="proceed_entries",
             before="create_drafts",
             after="review_drafts",
         )
@@ -248,8 +259,11 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
             trigger="choose",
             source=CreateFlowState.DRAFT,
             dest=CreateFlowState.SAVE,
-            before="confirm_drafts",
-            after="commit_drafts",
+            conditions=["confirm_drafts"],
+            unless=["dry_run"],
+            prepare="proceed_entries",
+            before="commit_drafts",
+            after="proceed_entries",
         )
         return machine
 
@@ -316,3 +330,20 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
             model = self.context.create_model(raw_entry=raw_entry)
             self.entry_machine.add_model(model)
         self.entry_machine.dispatch("validate")
+
+    def proceed_entries(self, event: EventData):
+        self.entry_machine.dispatch("next")
+
+    def confirm_drafts(self, event: EventData):
+        if self.dry_run:
+            self.reporter.console.print(
+                "[bright_black][bold](DRY RUN)[/bold] Pass [bright_white bold]--commit[/bright_white bold] to submit logs."
+            )
+            return False
+        if not self.reporter.prompt.confirm("Commit valid entries?"):
+            self.cancel("Canceled by user.")
+            return False
+        return True
+
+    def commit_drafts(self, event: EventData):  # noqa
+        self.reporter.console.print(":stopwatch:  [bold bright_white]Committing Entries...")
