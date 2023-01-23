@@ -73,7 +73,7 @@ class QuestionaryMultiSelect(QuestionaryPrompt, HasMultiSelect):
         get_key = key or str
         disabled = disabled or (lambda _: None)
         for i in items:
-            yield questionary.Choice(title=get_key(i), value=i, disabled=disabled(i))
+            yield questionary.Choice(title=get_key(i) or "", value=i, disabled=disabled(i))
 
     def create_multiselect(
         self,
@@ -86,7 +86,7 @@ class QuestionaryMultiSelect(QuestionaryPrompt, HasMultiSelect):
     ) -> questionary.Question:
         styles = style or questionary.Style([("disabled", "fg:#E32636 italic bold")])
         choices = self.create_choices(items, key=key, disabled=disabled)
-        return questionary.checkbox(title or "Choose", choices=choices, style=styles)
+        return questionary.checkbox(title or "Choose", choices=list(choices), style=styles)
 
 
 @attrs.define
