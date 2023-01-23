@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 from datetime import datetime
+from functools import cached_property
 from typing import TYPE_CHECKING, Iterable, TypeVar
 
 import attrs
@@ -106,7 +107,7 @@ class EntriesSource:
             loader.populate(*args, **kwargs)
         return cls(loader=loader)
 
-    @property
+    @cached_property
     def unlogged_entries(self) -> list[RawEntry]:
         return [e for e in self.loader.entries if not e.is_logged and not e.is_active]
 
