@@ -20,6 +20,12 @@ class TableModel(BaseModel):
 
         return TableState.db.table(self.__class__.__name__)
 
+    @classmethod
+    def table_of(cls) -> Table:
+        from twtw.db import TableState
+
+        return TableState.db.table(cls.__name__)
+
     @property
     def field_defaults(self) -> dict[str, Any]:
         return {}
