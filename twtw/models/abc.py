@@ -16,10 +16,10 @@ if TYPE_CHECKING:
 RawEntryData = TypeVar("RawEntryData", bound=dict)
 
 
-@attrs.define
+@attrs.define(frozen=True)
 class RawEntry(abc.ABC):
     id: int
-    tags: list[str]
+    tags: frozenset[str] = attrs.field(converter=frozenset)
     start: datetime
     end: datetime | None = attrs.field(default=None)
     annotation: str = attrs.field(default="")
