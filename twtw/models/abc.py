@@ -94,7 +94,7 @@ class EntryLoader(abc.ABC):
         self.entries.extend([self.process(d, *args, **kwargs) for d in datas if d])
 
 
-@attrs.define
+@attrs.define(slots=False)
 class EntriesSource:
     loader: EntryLoader
 
