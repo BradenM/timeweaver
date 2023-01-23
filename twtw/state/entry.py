@@ -6,7 +6,7 @@ import inspect
 from enum import auto, unique
 from functools import cached_property, partialmethod
 from inspect import Parameter
-from typing import Callable, Iterator, ParamSpec, TypeVar
+from typing import Callable, ClassVar, Iterator, ParamSpec, TypeVar
 
 import attrs
 import questionary
@@ -46,6 +46,7 @@ class FlowModifier(enum.Flag):
     COMMITS_AVAILABLE = auto()
     COMMITS_SELECTED = auto()
 
+    DISTRIBUTE_COMMITS = auto()
     DRY_RUN = auto()
 
     HAS_ENTRIES = ENTRIES_AVAILABLE | ENTRIES_SELECTED
@@ -302,6 +303,16 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
     def are_commits_available(self) -> bool:
         return bool(self.context.flags & FlowModifier.COMMITS_AVAILABLE)
 
+    @property
+    def should_distribute(self) -> bool:
+        return bool(self.context.flags & self.FlowModifier.DISTRIBUTE_COMMITS)
+
+    @should_distribute.setter
+    def should_distribute(self, value: bool):
+        self.context.flags &= ~self.FlowModifier.DISTRIBUTE_COMMITS
+        if value:
+            self.context.flags |= self.FlowModifier.DISTRIBUTE_COMMITS
+
     def do_cancel(self, event: EventData):
         err_msg = "Cancelled!" if not event.args else ", ".join(event.args)
         self.reporter.console.print(f"[bold bright_red]{err_msg}")
@@ -333,6 +344,9 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
 
     def proceed_entries(self, event: EventData):
         self.entry_machine.dispatch("next")
+
+    def distribute_commits(self, event: EventData):
+        pass
 
     def confirm_drafts(self, event: EventData):
         if self.dry_run:

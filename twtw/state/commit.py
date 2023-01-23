@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections
 import itertools
 from typing import Iterator, Tuple
 
@@ -13,7 +14,7 @@ from rich.table import Table
 from rich.text import Text
 from transitions import EventData, Machine
 
-from twtw.models.abc import EntriesSource
+from twtw.models.abc import EntriesSource, RawEntry
 from twtw.models.intervals import IntervalAggregator
 from twtw.models.models import CommitEntry, Project, ProjectRepository
 from twtw.models.timewarrior import TimeWarriorLoader
@@ -23,7 +24,6 @@ from twtw.utils import group_by
 
 @attrs.define(slots=False)
 class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
-
     git_author: str = attrs.field(default=None)
     proj: Project = attrs.field(default=None)
 
@@ -162,19 +162,71 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
                 commits,
                 title="Choose Commits",
                 key=lambda e: str(e),
+                checked=lambda e: not e.logged,
             )
             if results and any(results):
                 self.context.flags |= FlowModifier.COMMITS_SELECTED
                 self.chosen_commits[repo] = results
 
+    def distribute_commits(self, event: EventData) -> None:
+        total_seconds = sum(
+            [e.raw_entry.interval.timedelta.total_seconds() for e in self.active_models]
+        )
+        all_commits = sorted(
+            itertools.chain.from_iterable(self.chosen_commits.values()),
+            key=lambda c: c.authored_datetime,
+            reverse=True,
+        )
+
+        model_shares = {
+            m.raw_entry: m.raw_entry.interval.timedelta.total_seconds() / total_seconds
+            for m in self.active_models
+        }
+
+        model_commits = collections.defaultdict[RawEntry, list[CommitEntry]](list)
+        models = collections.deque(
+            sorted(self.active_models, key=lambda m: m.raw_entry.start, reverse=True)
+        )
+        commits = iter(all_commits)
+
+        while True:
+            # rotate and distribute commits until there are none left.
+            model = models[0]
+            models.rotate(-1)
+            model_share = round(model_shares[model.raw_entry] * len(all_commits))
+            model_share = model_share if model_share > 0 else 1
+            _commits = list(itertools.islice(commits, model_share))
+            if not _commits:
+                break
+            model_commits[model.raw_entry].extend(_commits)
+            logger.debug(
+                "accredited commits (id={}, share={}, num_commits={})",
+                model.raw_entry.id,
+                model_share,
+                len(_commits),
+            )
+
+        logger.debug(
+            "distributed commits (shares={}, model_commits={})", model_shares, model_commits
+        )
+        for raw_entry, commits in model_commits.items():
+            model = next((i for i in self.active_models if i.raw_entry == raw_entry))
+            repo_commits = [(ProjectRepository.from_git_repo(c.commit.repo), c) for c in commits]
+            model.log_entry.commits = {
+                k: [c[1] for c in v] for k, v in group_by(repo_commits, lambda v: v[0]).items()
+            }
+
     def create_drafts(self, event: EventData):  # noqa
-        self.entry_machine.dispatch("next")
+        if self.should_distribute:
+            self.distribute_commits(event)
         for mod in self.entry_machine.models:
             logger.debug("model (@{}) is ({})", mod.raw_entry.id, mod.state)
         for mod in self.active_models:
-            mod.log_entry.commits = self.chosen_commits
+            if not mod.log_entry.commits:
+                logger.debug("using chosen commits for entry commits: {}", mod.log_entry)
+                mod.log_entry.commits = self.chosen_commits
             changelog = mod.log_entry.generate_changelog(
-                commits=self.chosen_commits, project=self.project, header=str(mod.raw_entry)
+                commits=mod.log_entry.commits, project=self.project, header=str(mod.raw_entry)
             )
             changelog: str | None = typer.edit(text=changelog, require_save=True)
             if changelog is None:
@@ -201,7 +253,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
         table.add_column("ID")
         table.add_column("Project", no_wrap=True)
         table.add_column("Date", no_wrap=True)
-        table.add_column("Description", no_wrap=True)
+        table.add_column("Description", no_wrap=True, overflow="fold", max_width=table_width // 3)
         table.add_column(
             "Time", Text.from_markup("[b]Log Total", justify="right"), no_wrap=True, justify="right"
         )
@@ -225,8 +277,11 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
                 str(model.raw_entry.id),
                 project_name,
                 model.raw_entry.interval.day,
-                getattr(model.log_entry, "description", None)
-                or model.raw_entry.truncated_annotation(table_width // 3),
+                getattr(
+                    model.log_entry,
+                    "description",
+                    model.raw_entry.truncated_annotation(table_width // 3),
+                ),
                 model.raw_entry.interval.span,
                 model.raw_entry.interval.padded_duration,
                 style=style,
@@ -247,18 +302,18 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
             )
         )
 
-    def confirm_drafts(self, event: EventData):
-        if self.dry_run:
-            return
-        if not self.reporter.prompt.confirm("Commit valid entries?"):
-            self.cancel("Canceled by user.")
-
-    def commit_drafts(self, event: EventData):  # noqa
-        self.entry_machine.dispatch("next")
-        if self.dry_run:
-            self.reporter.console.print(
-                "[bright_black][bold](DRY RUN)[/bold] Pass [bright_white bold]--commit[/bright_white bold] to submit logs."
-            )
-            return
-        self.reporter.console.print(":stopwatch:  [bold bright_white]Committing Entries...")
-        self.entry_machine.dispatch("next")
+    # def confirm_drafts(self, event: EventData):
+    #     if self.dry_run:
+    #         return
+    #     if not self.reporter.prompt.confirm("Commit valid entries?"):
+    #         self.cancel("Canceled by user.")
+    #
+    # def commit_drafts(self, event: EventData):  # noqa
+    #     # self.entry_machine.dispatch("next")
+    #     if self.dry_run:
+    #         self.reporter.console.print(
+    #             "[bright_black][bold](DRY RUN)[/bold] Pass [bright_white bold]--commit[/bright_white bold] to submit logs."
+    #         )
+    #         return
+    #     self.reporter.console.print(":stopwatch:  [bold bright_white]Committing Entries...")
+    #     self.entry_machine.dispatch("next")
