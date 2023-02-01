@@ -98,6 +98,12 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
                     "dest": "complete",
                     "conditions": ["dry_run"],
                 },
+                {
+                    "trigger": "next",
+                    "source": "published",
+                    "dest": "complete",
+                    "after": "save_entry_handler",
+                },
             ],
         )
 
@@ -162,7 +168,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
                 commits,
                 title="Choose Commits",
                 key=lambda e: str(e),
-                checked=lambda e: not e.logged,
+                checked=lambda e: not getattr(e, "logged", True),
             )
             if results and any(results):
                 self.context.flags |= FlowModifier.COMMITS_SELECTED

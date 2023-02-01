@@ -155,6 +155,7 @@ class EntryFlowModel:
     def save_entry(self, *args, **kwargs):
         if self.teamw_response:
             self.log_entry.teamwork_id = self.teamw_response.time_log_id
+        self.log_entry.time_entry = self.log_entry.time_entry.add_tags("logged")
         self.log_entry.save()
 
     bound_unwrap = partialmethod(_unwrap_event)
@@ -262,8 +263,8 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
             dest=CreateFlowState.SAVE,
             conditions=["confirm_drafts"],
             unless=["dry_run"],
-            prepare="proceed_entries",
-            before="commit_drafts",
+            prepare="commit_drafts",
+            before="proceed_entries",
             after="proceed_entries",
         )
         return machine
