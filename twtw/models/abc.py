@@ -24,7 +24,7 @@ class RawEntry(abc.ABC):
     end: datetime | None = attrs.field(default=None)
     annotation: str = attrs.field(default="")
 
-    def __str__(self):
+    def __str__(self) -> str:
         _tags = set(self.tags)
         _tags -= {"@work"}
         _annot = "- '{}'".format(self.truncated_annotation()) if self.annotation else ""
@@ -44,6 +44,7 @@ class RawEntry(abc.ABC):
     def interval(self) -> TimeRange | None:
         if not self.is_active:
             return TimeRange(start=self.start, end=self.end)
+        return None
 
     @property
     def description(self) -> str:
@@ -64,9 +65,10 @@ class RawEntry(abc.ABC):
         ...
 
     def add_tags(self, *values: str) -> RawEntry:
+        new = self
         for v in values:
-            self.add_tag(v)
-        return self
+            new = self.add_tag(v)
+        return new
 
 
 @attrs.define
