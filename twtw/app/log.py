@@ -31,7 +31,7 @@ from twtw.models.models import (
     TeamworkTimeEntryResponse,
 )
 from twtw.models.timewarrior import TimeWarriorEntry
-from twtw.state.entry import CSVCreateEntryFlow
+from twtw.state.csv import CSVCreateEntryFlow
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 T = TypeVar("T")
@@ -439,3 +439,30 @@ def do_csv(csv_path: Path, commit: bool = False):
         print(e)
     else:
         print(":tada:  [b bright_green]Done!")
+
+
+# @app.command(name="cr")
+# def do_cr(name: str, commit: bool = False, distribute: bool = False):
+#     proj = Project(name=name).load()
+#     try:
+#         flow = TimeWarriorCreateEntryFlow(proj=proj, git_author=config.GIT_USER)
+#         flow.start()
+#         if commit is False:
+#             flow.dry_run = True
+#         flow.should_distribute = distribute
+#         flow.choose()
+#         flow.choose()
+#         flow.choose()
+#         try:
+#             flow.choose()
+#         except Exception as e:
+#             print(e)
+#     except Exception as e:
+#         print("Error:")
+#         print(e)
+#         import pdb
+#
+#         pdb.xpm()
+#         raise
+#     else:
+#         print(":tada:  [b bright_green]Done!")
