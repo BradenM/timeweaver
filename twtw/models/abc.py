@@ -64,6 +64,10 @@ class RawEntry(abc.ABC):
     def add_tag(self, value: str) -> RawEntry:
         ...
 
+    @abc.abstractmethod
+    def remove_tag(self, value: str) -> RawEntry:
+        raise NotImplementedError
+
     def add_tags(self, *values: str) -> RawEntry:
         new = self
         for v in values:
