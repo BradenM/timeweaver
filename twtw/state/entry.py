@@ -346,7 +346,6 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
         for raw_entry in targets:
             model = self.context.create_model(raw_entry=raw_entry)
             self.entry_machine.add_model(model)
-        self.entry_machine.get_graph().draw(self.__class__.__name__ + ".png", prog="dot")
         self.entry_machine.dispatch("validate")
 
     def proceed_entries(self, event: EventData):
