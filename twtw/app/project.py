@@ -3,17 +3,12 @@ from typing import Optional
 
 import rich.prompt
 import typer
-from rich import box, print
-from rich.align import Align
+from rich import print
 from rich.console import Group
-from rich.panel import Panel
-from rich.table import Table
 from rich.tree import Tree
 
-from twtw.api.ui import Reporter
 from twtw.db import TableState
 from twtw.models.models import Project, ProjectRepository, TeamworkProject
-from twtw.recent import get_project_aggregates
 
 app = typer.Typer()
 
@@ -34,26 +29,6 @@ def parse_tags(in_tags: Optional[str] = None) -> Optional[list[str]]:
         return []
     _tags = in_tags.split(",")
     return [t.strip() for t in _tags]
-
-
-@app.command(name="aggregate")
-def do_aggregate(days: int = None):
-    reporter = Reporter()
-    table_width = round(reporter.console.width // 1.15)
-    table = Table(
-        show_footer=True,
-        show_header=True,
-        header_style="bold bright_white",
-        box=box.SIMPLE_HEAD,
-        width=table_width,
-        title="Project Aggregates",
-    )
-    table.add_column("Project", no_wrap=True)
-    table.add_column("Total", no_wrap=True, justify="right")
-    project_aggrs = get_project_aggregates(days)
-    for project, aggr in project_aggrs.items():
-        table.add_row(project, aggr.duration)
-    reporter.console.print(Align.center(Panel(table, padding=(1, 3))))
 
 
 def create_project_node(project: Project, root: Tree) -> Tree:
