@@ -5,14 +5,16 @@ exclude: |
     /(
         \.eggs
       | \.git
+      | \.hg
       | \.mypy_cache
+      | \.tox
       | \.venv
-      | \.direnv
       | _build
       | build
       | dist
-      | snippets
+      | micropy/lib
     )/
+    | foo.py
   )$
 
 repos:
@@ -20,25 +22,25 @@ repos:
     rev: v4.4.0
     hooks:
       - id: debug-statements
-      - id: detect-aws-credentials
-        args: ["--allow-missing-credentials"]
       - id: detect-private-key
       - id: end-of-file-fixer
       - id: check-executables-have-shebangs
-  - repo: https://github.com/myint/autoflake
-    rev: v2.0.1
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: "v0.0.255"
     hooks:
-      - id: autoflake
+      - id: ruff
         args:
-          - "--recursive"
-          - "--in-place"
-          - "--remove-all-unused-imports"
-          - "--ignore-init-module-imports"
-  - repo: https://github.com/psf/black
-    rev: 23.1.0
-    hooks:
-      - id: black
+          - --fix
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
       - id: isort
+  - repo: https://github.com/psf/black
+    rev: 23.1.0
+    hooks:
+      - id: black
+  - repo: https://github.com/python-poetry/poetry
+    rev: 1.4.1
+    hooks:
+      - id: poetry-check
+        files: "^(pyproject.toml|poetry.lock)$"
