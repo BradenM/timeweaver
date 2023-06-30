@@ -85,10 +85,18 @@ class ProjectRepository(TableModel):
             return cls(**res)
         raise ValueError(f"No ProjectRepository found at working dir: {path}")
 
-    def iter_commits_by_author(self, author_email: str) -> Iterator[CommitEntry]:
+    def iter_commits_by_author(
+        self, author_email: str, *, unlogged_only: bool = True, unlogged_context: int = 5
+    ) -> Iterator[CommitEntry]:
+        context_consumed = 0
         for commit in self.git_repo.iter_commits(max_count=350):
             if commit.author.email == author_email:
-                yield CommitEntry.parse_commit(commit)
+                commit = CommitEntry.parse_commit(commit)
+                yield commit
+                if commit.logged:
+                    if context_consumed >= unlogged_context:
+                        break
+                    context_consumed += 1
 
     def __hash__(self):
         return hash(self.path)
