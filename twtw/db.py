@@ -5,9 +5,11 @@ import git
 import orjson
 from click import get_app_dir
 from tinydb import TinyDB
-from tinydb.storages import JSONStorage
+from tinydb.middlewares import CachingMiddleware
+from tinydb.storages import JSONStorage, Storage
 from tinydb_serialization import SerializationMiddleware, Serializer
 from tinydb_serialization.serializers import DateTimeSerializer
+from tinydb_smartcache import SmartCacheTable
 
 from twtw.models.abc import RawEntry
 
@@ -61,8 +63,8 @@ class CommitSerializer(Serializer):
         return repo.commit(commit_sha)
 
 
-def create_db_storage() -> SerializationMiddleware:
-    storage = SerializationMiddleware(JSONStorage)
+def create_db_storage(storage_cls: type[Storage] = JSONStorage) -> SerializationMiddleware:
+    storage = SerializationMiddleware(CachingMiddleware(storage_cls))
     storage.register_serializer(PathSerializer(), "TinyPath")
     storage.register_serializer(DateTimeSerializer(), "TinyDate")
     storage.register_serializer(CommitSerializer(), "TinyCommit")
@@ -72,13 +74,28 @@ def create_db_storage() -> SerializationMiddleware:
 
 def _create_db(db_path: Path) -> TinyDB:
     storage = create_db_storage()
-    return TinyDB(str(db_path), storage=storage, sort_keys=True, indent=4, separators=(",", ": "))
+    db = TinyDB(str(db_path), storage=storage, sort_keys=True, indent=4, separators=(",", ": "))
+    db.table_class = SmartCacheTable
+    return db
 
 
 def _on_update_path(instance: "_TableState", attrib: attr.Attribute, new_value: Path) -> Path:
     new_value.parent.mkdir(exist_ok=True)
     instance.db = _create_db(new_value)
     return new_value
+
+
+def migrate_db(from_db: TinyDB, to_db: TinyDB):
+    from rich import print
+
+    for table in from_db.tables():
+        print()
+        print(f"[b cyan]Migrating:[/] [b bright_white]{table}")
+        docs = from_db.table(table).all()
+        print(f"Found: [b bright_white]{len(docs)}[/] documents...")
+        to_db.table(table).insert_multiple(docs)
+    from_db.close()
+    to_db.close()
 
 
 @attr.s(auto_attribs=True, collect_by_mro=True)
