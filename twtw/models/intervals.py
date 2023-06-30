@@ -6,7 +6,7 @@ import attrs
 from dateutil.relativedelta import relativedelta
 
 
-@attrs.define(frozen=True)
+@attrs.define(frozen=True, slots=False)
 class TimeRange:
     start: datetime
     end: datetime
@@ -24,6 +24,10 @@ class TimeRange:
     @property
     def timedelta(self) -> timedelta:
         return self.end - self.start
+
+    @property
+    def total_seconds(self) -> float:
+        return self.timedelta.total_seconds()
 
     @property
     def duration(self) -> str:
@@ -63,15 +67,18 @@ class TimeRange:
         return "{:%b %d}".format(self.start)
 
 
-@attrs.define(frozen=True)
+@attrs.define(frozen=True, slots=False)
 class IntervalAggregator:
-    intervals: set[TimeRange] = attrs.field(factory=set)
+    intervals: list[TimeRange] = attrs.field(factory=list)
 
-    def add(self, interval: TimeRange) -> IntervalsAggregate:
-        return attrs.evolve(self, intervals=self.intervals | {interval})
+    def add(self, interval: TimeRange) -> "IntervalAggregator":
+        return attrs.evolve(self, intervals=[*self.intervals, interval])
 
-    def remove(self, interval: TimeRange) -> IntervalsAggregate:
-        return attrs.evolve(self, intervals=self.intervals - {interval})
+    def remove(self, interval: TimeRange) -> "IntervalAggregator":
+        ivals = [
+            i for i in self.intervals if not i.start == interval.start and i.end == interval.end
+        ]
+        return attrs.evolve(self, intervals=ivals)
 
     @property
     def relative_deltas(self) -> list[relativedelta]:
@@ -89,5 +96,17 @@ class IntervalAggregator:
 
     @property
     def duration(self) -> str:
-        fmt = "{}h {}m"
-        return fmt.format(self.delta.hours, self.delta.minutes)
+        fmt = "{:02.0f}h {:02.0f}m {:02.0f}s"
+        return fmt.format(*self.duration_counts)
+
+    @property
+    def total_seconds(self) -> float:
+        return sum([i.total_seconds for i in self.intervals])
+
+    @property
+    def duration_counts(self) -> tuple[float, float, float]:
+        hours = self.total_seconds // 3600
+        rem_seconds = self.total_seconds % 3600
+        minutes = rem_seconds // 60
+        seconds = rem_seconds % 60
+        return hours, minutes, seconds
