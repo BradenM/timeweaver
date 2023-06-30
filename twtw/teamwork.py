@@ -25,8 +25,8 @@ from rich.console import Console
 from rich.progress import track
 from rich.table import Table, box
 
+import twtw._taskw
 import twtw.config
-import twtw.taskw
 
 ROSS_ID = os.getenv('TEAMWORK_ID')
 
