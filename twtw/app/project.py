@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 import rich.prompt
 import typer
@@ -67,9 +68,9 @@ def do_list():
 @app.command()
 def add(
     name: str,
-    tags: str | None = None,
-    teamwork_name: str | None = None,
-    teamwork_id: int | None = None,
+    tags: Optional[str] = None,  # noqa: RUF013, RUF100, UP007
+    teamwork_name: Optional[str] = None,  # noqa: RUF013, RUF100, UP007
+    teamwork_id: Optional[int] = None,  # noqa: RUF013, RUF100, UP007
 ):
     tw_proj = None
     if teamwork_name and teamwork_id:
@@ -89,7 +90,7 @@ def add(
 
 
 @app.command()
-def modify(name: str, new_name: str | None = None, tags: str | None = None):
+def modify(name: str, new_name: Optional[str] = None, tags: Optional[str] = None):  # noqa: UP007
     proj = Project(name=name).load()
     _tags = parse_tags(tags)
     print(new_name)
@@ -103,7 +104,7 @@ def modify(name: str, new_name: str | None = None, tags: str | None = None):
 
 
 @app.command()
-def associate(name: str, path: Path | None = None):
+def associate(name: str, path: Optional[Path] = None):  # noqa: UP007
     proj = Project(name=name).load()
     _path = path or Path.cwd()
     proj_repo = ProjectRepository(path=_path)

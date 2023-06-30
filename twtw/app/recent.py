@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Protocol, cast
+from typing import Any, Optional, Protocol, cast
 
 import arrow
 import attrs
@@ -148,7 +148,7 @@ def get_recent(days: int = 1, unlogged: bool = False):
 
 
 @app.command(name="aggregate")
-def do_aggregate(days: int | None = None):
+def do_aggregate(days: Optional[int] = None):  # noqa: UP007
     """Aggregate recent entries by project."""
     filters = [
         TagFilter("@work"),

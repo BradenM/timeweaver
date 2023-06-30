@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
-from typing import TypeVar
+from typing import Optional, TypeVar
 
 import attr
 import questionary
@@ -52,7 +52,7 @@ def project(ctx: typer.Context):
 
 
 @app.command(name="pending")
-def do_pending(project_name: str | None = None):
+def do_pending(project_name: Optional[str] = None):  # noqa: UP007
     if project_name:
         proj = Project(name=project_name).load()
         entries = list(reversed(list(TimeWarriorEntry.unlogged_by_project(proj.name))))
@@ -72,7 +72,7 @@ def do_pending(project_name: str | None = None):
 
 
 @app.command(name="list")
-def do_list(project_name: str | None = None, synced: bool | None = None):
+def do_list(project_name: Optional[str] = None, synced: Optional[bool] = None):  # noqa: UP007
     bquery = Query().teamwork_id.exists()
     if synced is False:
         bquery = ~bquery
@@ -104,37 +104,22 @@ def do_csv(csv_path: Path, commit: bool = False):
 @app.command(name="create")
 def do_create(name: str, commit: bool = False, distribute: bool = False):
     proj = Project(name=name).load()
-    try:
-        flow = TimeWarriorCreateEntryFlow(proj=proj, git_author=config.GIT_USER)
-        flow.start()
-        if commit is False:
-            flow.dry_run = True
-        flow.should_distribute = distribute
-        flow.choose()
-        flow.choose()
+    flow = TimeWarriorCreateEntryFlow(proj=proj, git_author=config.GIT_USER)
+    flow.start()
+    if commit is False:
+        flow.dry_run = True
+    flow.should_distribute = distribute
+
+    while True:
         try:
             flow.choose()
         except KeyboardInterrupt as e:
-            raise typer.Abort(e)  # noqa: B904
+            raise typer.Abort(e) from e
         except Exception as e:
             print(e)
-        try:
-            flow.choose()
-        except KeyboardInterrupt:
-            raise typer.Abort(e)  # noqa: B904, F821
-        except Exception as e:
-            print(e)
-    except KeyboardInterrupt as e:
-        raise typer.Abort(e)  # noqa: B904
-    except Exception as e:
-        print("Error:")
-        print(e)
-        # import pdb
-        #
-        # pdb.xpm()
-        raise
-    else:
-        print(":tada:  [b bright_green]Done!")
+            break
+        finally:
+            print(":tada:  [b bright_green]Done!")
 
 
 def get_project_tags() -> set[str]:
@@ -164,7 +149,7 @@ def get_timew_entry(
 
 
 @app.command(name="swap")
-def do_swap(new_project: str, ids: list[int], annotation: str | None = None):
+def do_swap(new_project: str, ids: list[int], annotation: str = None):  # noqa: RUF013
     """Swap project for given entry ids."""
     project_tags = get_project_tags()
 
