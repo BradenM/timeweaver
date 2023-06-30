@@ -106,9 +106,6 @@ line-length = 100
 target-version = 'py311'
 src = ['twtw']
 
-[tool.ruff.pyupgrade]
-keep-runtime-typing = true
-
 [build-system]
 requires = ['poetry-core']
 build-backend = "poetry.core.masonry.api"
