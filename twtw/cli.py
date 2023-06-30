@@ -17,8 +17,6 @@ app.add_typer(project_app, name="project")
 app.add_typer(log_app, name="log")
 app.add_typer(recent_app, name="recent")
 
-# VerbosityOption: int = typer.Option(int(VerbosityLevel.ERROR), '--verbose', '-v', count=True, max=int(VerbosityLevel.ALL), callback=configure_log)
-
 
 @app.callback(no_args_is_help=True)
 def cli(
@@ -31,15 +29,7 @@ def cli(
         max=VerbosityLevel.ALL,
     )
 ):
-    """ArroyoDev Timewarrior Integration Entrypoint"""
-
-
-def time_in_range(start, end, x):
-    """Return true if x is in the range [start, end]"""
-    if start <= end:
-        return start <= x <= end
-    else:
-        return start <= x or x <= end
+    """TimeWarrior TeamWork CLI"""
 
 
 if __name__ == "__main__":
