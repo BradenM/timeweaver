@@ -3,10 +3,11 @@ from __future__ import annotations
 import abc
 import enum
 import inspect
+from collections.abc import Callable, Iterator
 from enum import auto, unique
 from functools import cached_property, partialmethod
 from inspect import Parameter
-from typing import Callable, ClassVar, Iterator, ParamSpec, Protocol, TypeVar
+from typing import ClassVar, ParamSpec, Protocol, TypeVar
 
 import attrs
 import questionary
@@ -71,7 +72,9 @@ class EntryContext:
         entries = TableState.db.table(Project.__name__).all()
         return [Project.parse_obj(e).load() for e in entries]
 
-    def create_model(self, raw_entry: RawEntry, flags: FlowModifier = None) -> EntryFlowModel:
+    def create_model(
+        self, raw_entry: RawEntry, flags: FlowModifier | None = None
+    ) -> EntryFlowModel:
         model = EntryFlowModel(
             context=self, raw_entry=raw_entry, model_flags=self.flags | (flags or self.flags)
         )
@@ -324,7 +327,7 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
         self.reporter.console.print(f"[bold bright_red]{err_msg}")
 
     def iter_choices(
-        self, objs: list[T], key: Callable[[T], str] = None
+        self, objs: list[T], key: Callable[[T], str] | None = None
     ) -> Iterator[questionary.Choice]:
         get_key = key or str
         for e in objs:
@@ -341,7 +344,7 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
         event.kwargs |= {"results": results}
         return event
 
-    def prepare_entries(self, event: EventData):  # noqa
+    def prepare_entries(self, event: EventData):
         targets = self.context.source.unlogged_entries
         for raw_entry in targets:
             model = self.context.create_model(raw_entry=raw_entry)
@@ -365,5 +368,5 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
             return False
         return True
 
-    def commit_drafts(self, event: EventData):  # noqa
+    def commit_drafts(self, event: EventData):
         self.reporter.console.print(":stopwatch:  [bold bright_white]Committing Entries...")

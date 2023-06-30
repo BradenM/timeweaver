@@ -3,11 +3,13 @@ from __future__ import annotations
 import logging
 import re
 from collections import defaultdict
+from collections.abc import Iterator
 from datetime import datetime
 from functools import lru_cache
 from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterator, Optional, Pattern, Union
+from re import Pattern
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 from uuid import UUID
 
 import git
@@ -16,7 +18,6 @@ from pydantic import BaseModel, Field, validator
 from rich.table import Table
 from taskw import TaskWarrior
 from tinydb.queries import Query, QueryLike
-from typing_extensions import Literal, TypeAlias
 
 from twtw.models.abc import RawEntry
 from twtw.models.timewarrior import TimeRange
@@ -36,7 +37,7 @@ class TaskWarriorTask(BaseModel):
     description: str
     entry: datetime
     modified: datetime
-    project: Optional[str]
+    project: str | None
     status: TWTaskStatus
     tags: list[str]
     uuid: UUID
@@ -51,23 +52,21 @@ class TaskWarriorTask(BaseModel):
 
 class ProjectRepository(TableModel):
     path: Path
-    name: Optional[str]
+    name: str | None
 
     def __lt__(self, other):
         return self.name < other.name
 
     @validator("path", pre=True, always=True)
-    def validate_path(cls, v: Union[str, Path]) -> Path:
+    def validate_path(cls, v: str | Path) -> Path:
         try:
             git.Repo(v)
         except git.InvalidGitRepositoryError as e:
-            raise TypeError(
-                "ProjectRepository->path must be a valid git repository: {}".format(v)
-            ) from e
+            raise TypeError(f"ProjectRepository->path must be a valid git repository: {v}") from e
         return Path(v)
 
     @validator("name", pre=True, always=True)
-    def validate_name(cls, v: Optional[str], values: dict[str, Any]) -> str:
+    def validate_name(cls, v: str | None, values: dict[str, Any]) -> str:
         if v:
             return v
         _path: Path = values.get("path")
@@ -78,7 +77,7 @@ class ProjectRepository(TableModel):
         return git.Repo(self.path)
 
     @classmethod
-    def from_git_repo(cls, git_repo: git.Repo) -> "ProjectRepository":
+    def from_git_repo(cls, git_repo: git.Repo) -> ProjectRepository:
         path = Path(git_repo.working_dir).absolute()
         query = Query().path == path
         if res := cls.table_of().get(query):
@@ -101,7 +100,7 @@ class ProjectRepository(TableModel):
     def __hash__(self):
         return hash(self.path)
 
-    def __eq__(self, other: "ProjectRepository"):
+    def __eq__(self, other: ProjectRepository):
         return getattr(self, "path", None) == getattr(other, "path", None)
 
     def __str__(self):
@@ -110,7 +109,7 @@ class ProjectRepository(TableModel):
 
 class TeamworkProject(TableModel):
     name: str
-    project_id: Optional[int] = None
+    project_id: int | None = None
 
     def __rich_console__(self, *args):
         yield f"[b bright_white]Teamwork:[/b bright_white][bright_white] {self.name}[/][bright_black] ({self.project_id})"
@@ -124,7 +123,7 @@ class TeamworkTimeEntry(BaseModel):
     hours: str
     minutes: str
     billable: bool = Field(False, alias="isbillable")
-    tags: Optional[str] = None
+    tags: str | None = None
 
     class Config:
         allow_population_by_field_name = True
@@ -137,11 +136,11 @@ class TeamworkTimeEntryRequest(BaseModel):
         allow_population_by_field_name = True
 
     @classmethod
-    def from_entry(cls, *, entry: "LogEntry", person_id: str):
+    def from_entry(cls, *, entry: LogEntry, person_id: str):
         # DATE_FORMAT = "%Y%m%d"
         # TIME_FORMAT = "%H:%M"
-        start_date = "{:%Y%m%d}".format(entry.time_entry.start)
-        start_time = "{:%H:%M}".format(entry.time_entry.start)
+        start_date = f"{entry.time_entry.start:%Y%m%d}"
+        start_time = f"{entry.time_entry.start:%H:%M}"
         tags = ",".join(entry.project.resolve_tags())
         body = TeamworkTimeEntry(
             description=entry.description,
@@ -164,28 +163,28 @@ class Project(TableModel):
     name: str
     tags: list[str] = Field(default_factory=list)
     repos: list[ProjectRepository] = Field(default_factory=list)
-    teamwork_project: Optional[TeamworkProject] = None
+    teamwork_project: TeamworkProject | None = None
 
     def __hash__(self):
         return hash(self.name)
 
-    def __eq__(self, other: "Project"):
+    def __eq__(self, other: Project):
         return getattr(self, "name", None) == getattr(other, "name", None)
 
     @property
-    @lru_cache()  # to prevent early parent invocation.
+    @lru_cache  # to prevent early parent invocation.
     def is_root(self) -> bool:
         return self.parent is None
 
     @property
-    @lru_cache()  # to prevent early parent invocation.
+    @lru_cache  # to prevent early parent invocation.
     def nickname(self):
         if self.is_root:
             return self.name
         return self.name.split(".")[-1]
 
     @property
-    @lru_cache()
+    @lru_cache
     def parent(self) -> Project | None:
         if "." not in self.name:
             return None
@@ -222,10 +221,10 @@ class Project(TableModel):
 
 class CommitEntry(TableModel):
     commit: git.Commit
-    commit_type: Optional[str]
-    scope: Optional[str]
-    title: Optional[str]
-    logged: Optional[bool] = False
+    commit_type: str | None
+    scope: str | None
+    title: str | None
+    logged: bool | None = False
 
     class Config:
         copy_on_model_validation = False
@@ -242,7 +241,7 @@ class CommitEntry(TableModel):
         _data.setdefault("sha", self.sha)
         self.table.upsert(_data, cond=self.query())
 
-    def load(self) -> "CommitEntry":
+    def load(self) -> CommitEntry:
         data = self.table.get(self.query())
         if data:
             data.pop("sha", None)
@@ -265,7 +264,7 @@ class CommitEntry(TableModel):
 
     @property
     def authored_date(self) -> str:
-        return "{:%b %d}".format(self.commit.authored_datetime)
+        return f"{self.commit.authored_datetime:%b %d}"
 
     @property
     def authored_datetime(self) -> datetime:
@@ -287,10 +286,10 @@ class CommitEntry(TableModel):
 class LogEntry(TableModel):
     time_entry: RawEntry
     project: Project
-    taskw_uuid: Optional[UUID]
-    teamwork_id: Optional[int]
+    taskw_uuid: UUID | None
+    teamwork_id: int | None
     commits: dict[ProjectRepository, list[CommitEntry]] = Field(default_factory=dict)
-    description: Optional[str]
+    description: str | None
 
     @property
     def field_defaults(self) -> dict[str, Any]:
@@ -317,12 +316,12 @@ class LogEntry(TableModel):
     def generate_changelog(
         commits: dict[ProjectRepository, list[CommitEntry]],
         project: Project,
-        header: str = None,
+        header: str | None = None,
         lb="\n",
     ):
-        repo_commits: dict[ProjectRepository, dict[str, list[CommitEntry]]] = {
-            k: v for k, v in LogEntry.iter_scoped_repo_commits(commits)
-        }
+        repo_commits: dict[ProjectRepository, dict[str, list[CommitEntry]]] = dict(
+            LogEntry.iter_scoped_repo_commits(commits)
+        )
         tmpl_path = Path(__file__).parent / "entry.mako"
         tmpl = Template(filename=str(tmpl_path))
         return tmpl.render(repo_commits=repo_commits, project=project, header=header)

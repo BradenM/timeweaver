@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any, Callable, Protocol, T, TypeAlias, TypeVar, runtime_checkable
+from collections.abc import Callable, Iterable
+from typing import Any, Protocol, T, TypeAlias, TypeVar, runtime_checkable
 
 import attrs
 import questionary
@@ -37,11 +37,11 @@ class HasMultiSelect(Protocol):
         self,
         items: Iterable[ChoiceT],
         *,
-        title: str = None,
+        title: str | None = None,
         key: ChoiceKeyFunc | None = None,
-        disabled: Callable[[ChoiceT], str] = None,
+        disabled: Callable[[ChoiceT], str] | None = None,
         checked: Callable[[ChoiceT], bool] | None = None,
-        style: questionary.Style = None,
+        style: questionary.Style | None = None,
     ) -> Iterable[ChoiceT | Any] | Any:
         ...
 
@@ -86,11 +86,11 @@ class QuestionaryMultiSelect(QuestionaryPrompt, HasMultiSelect):
         self,
         items: Iterable[ChoiceT],
         *,
-        title: str = None,
+        title: str | None = None,
         key: ChoiceKeyFunc | None = None,
         disabled: Callable[[ChoiceT], str] | None = None,
         checked: Callable[[ChoiceT], bool] | None = None,
-        style: questionary.Style = None,
+        style: questionary.Style | None = None,
     ) -> questionary.Question:
         styles = style or questionary.Style([("disabled", "fg:#E32636 italic bold")])
         choices = self.create_choices(items, key=key, disabled=disabled, checked=checked)
@@ -112,7 +112,7 @@ class Prompter:
 
     def resolve_prompt(self, proto: Promptable) -> Promptable:
         try:
-            return next((i for i in self.prompt_types if isinstance(i, proto)))
+            return next(i for i in self.prompt_types if isinstance(i, proto))
         except StopIteration as e:
             raise TypeError(f"No prompt type found for protocol: {proto}") from e
 

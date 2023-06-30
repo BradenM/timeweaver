@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import collections
 import itertools
-from typing import Iterator, Tuple
+from collections.abc import Iterator
 
 import attrs
 import typer
@@ -107,7 +107,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
             ],
         )
 
-    def choose_entries(self, event: EventData):  # noqa
+    def choose_entries(self, event: EventData):
         disabled_help = "No Project Found!"
         results: list[EntryFlowModel] = self.reporter.prompt.multiselect(
             self.context.models,
@@ -141,7 +141,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
             repo_names.add(r.name)
 
     @property
-    def active_commits(self) -> Iterator[Tuple[ProjectRepository, CommitEntry]]:
+    def active_commits(self) -> Iterator[tuple[ProjectRepository, CommitEntry]]:
         for repo in self.chosen_repos:
             for commit in repo.iter_commits_by_author(self.git_author):
                 yield repo, commit
@@ -216,13 +216,13 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
             "distributed commits (shares={}, model_commits={})", model_shares, model_commits
         )
         for raw_entry, commits in model_commits.items():
-            model = next((i for i in self.active_models if i.raw_entry == raw_entry))
+            model = next(i for i in self.active_models if i.raw_entry == raw_entry)
             repo_commits = [(ProjectRepository.from_git_repo(c.commit.repo), c) for c in commits]
             model.log_entry.commits = {
                 k: [c[1] for c in v] for k, v in group_by(repo_commits, lambda v: v[0]).items()
             }
 
-    def create_drafts(self, event: EventData):  # noqa
+    def create_drafts(self, event: EventData):
         if self.should_distribute:
             self.distribute_commits(event)
         for mod in self.entry_machine.models:
@@ -246,7 +246,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
             mod.log_entry.description = changelog
             logger.debug("drafted model log entry: {}", mod.log_entry)
 
-    def review_drafts(self, event: EventData):  # noqa
+    def review_drafts(self, event: EventData):
         table_width = round(self.reporter.console.width // 1.15)
         table = Table(
             show_footer=True,
@@ -314,7 +314,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
     #     if not self.reporter.prompt.confirm("Commit valid entries?"):
     #         self.cancel("Canceled by user.")
     #
-    # def commit_drafts(self, event: EventData):  # noqa
+    # def commit_drafts(self, event: EventData):
     #     # self.entry_machine.dispatch("next")
     #     if self.dry_run:
     #         self.reporter.console.print(

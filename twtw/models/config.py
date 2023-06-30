@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from git import GitConfigParser
 from pydantic import HttpUrl, validator
 from rich.console import Console, ConsoleOptions, RenderResult
@@ -14,16 +12,16 @@ from twtw.models.base import TableModel
 
 class Config(TableModel):
     PROFILE: str = "default"
-    TEAMWORK_HOST: Optional[HttpUrl] = None
-    API_KEY: Optional[str] = None
-    GIT_USER: Optional[str] = None
-    TEAMWORK_UID: Optional[str] = None
+    TEAMWORK_HOST: HttpUrl | None = None
+    API_KEY: str | None = None
+    GIT_USER: str | None = None
+    TEAMWORK_UID: str | None = None
 
     def query(self) -> QueryLike:
         return Query().PROFILE == self.PROFILE
 
     @validator("GIT_USER", pre=True, always=True)
-    def get_current_git_user(cls, v: Optional[str]) -> Optional[str]:
+    def get_current_git_user(cls, v: str | None) -> str | None:
         if v:
             return v
         git_config = GitConfigParser(read_only=True)

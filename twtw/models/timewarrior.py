@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterator
 from datetime import datetime
-from typing import TYPE_CHECKING, Callable, Iterator, Optional
+from typing import TYPE_CHECKING
 
 import attrs
 import sh
@@ -57,18 +58,16 @@ class TimeWarriorLoader(EntryLoader):
         if project_tags := kwargs.get("project_tags", None):
             project_tags = [t.lower() for t in project_tags]
             tags = set(data.get("tags", []).copy())
-            project_tag = next((i for i in tags if i.lower() in project_tags))
+            project_tag = next(i for i in tags if i.lower() in project_tags)
             tags -= {"@work", project_tag}
             annot = ", ".join(tags)
             data.setdefault("annotation", annot)
         else:
-            tags = set(
-                [
-                    t
-                    for t in data.get("tags", [])
-                    if t not in ("@work", "logged") and "twtw:id" not in t
-                ]
-            )
+            tags = {
+                t
+                for t in data.get("tags", [])
+                if t not in ("@work", "logged") and "twtw:id" not in t
+            }
             tag_splits = [t.split(".") for t in tags]
             if (project_tag := next((t for t in tag_splits if len(t) == 2), None)) is not None:
                 if (annot := next(iter(tags - {".".join(project_tag)}), None)) is not None:
@@ -79,12 +78,12 @@ class TimeWarriorLoader(EntryLoader):
 class TimeWarriorEntry(BaseModel):
     id: int
     start: datetime
-    end: Optional[datetime] = None
+    end: datetime | None = None
     tags: list[str]
-    annotation: Optional[str]
+    annotation: str | None
 
     @classmethod
-    def load_entries(cls, *filters: Callable[[dict], bool]) -> Iterator["TimeWarriorEntry"]:
+    def load_entries(cls, *filters: Callable[[dict], bool]) -> Iterator[TimeWarriorEntry]:
         tw: sh.Command = sh.Command("timew")
         data_raw = tw.export().stdout.decode()
         _data = json.loads(data_raw)
@@ -100,11 +99,11 @@ class TimeWarriorEntry(BaseModel):
             yield cls(**item, start=start, end=end)
 
     @classmethod
-    def unlogged_entries(cls) -> Iterator["TimeWarriorEntry"]:
+    def unlogged_entries(cls) -> Iterator[TimeWarriorEntry]:
         return cls.load_entries(lambda t: "logged" in t["tags"])
 
     @classmethod
-    def unlogged_by_project(cls, project_name: str) -> Iterator["TimeWarriorEntry"]:
+    def unlogged_by_project(cls, project_name: str) -> Iterator[TimeWarriorEntry]:
         _name = project_name.lower()
         return cls.load_entries(
             lambda t: "logged" in t["tags"],
@@ -117,7 +116,7 @@ class TimeWarriorEntry(BaseModel):
         return self.start is not None and not self.end
 
     @property
-    def interval(self) -> Optional[TimeRange]:
+    def interval(self) -> TimeRange | None:
         if not self.is_active:
             return TimeRange(start=self.start, end=self.end)
 
@@ -126,7 +125,7 @@ class TimeWarriorEntry(BaseModel):
         _tags = ",".join(self.tags)
         return f"{_tags}: {self.annotation}"
 
-    def add_tags(self, *tags: str) -> "TimeWarriorEntry":
+    def add_tags(self, *tags: str) -> TimeWarriorEntry:
         tw: sh.Command = sh.Command("timew")
         tw.tag(f"@{self.id}", *tags)
         _new_tags = {*self.tags, *tags}

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
-from typing import Callable, List, Optional, TypeVar
+from typing import TypeVar
 
 import attr
 import questionary
@@ -30,7 +31,7 @@ class CommitMode(str, Enum):
 
 @attr.s(auto_attribs=True, collect_by_mro=True, kw_only=True)
 class QRichPrompt:
-    question: "questionary.Question"
+    question: questionary.Question
 
     def __rich__(self):
         self.question.ask()
@@ -51,7 +52,7 @@ def project(ctx: typer.Context):
 
 
 @app.command(name="pending")
-def do_pending(project_name: str = None):
+def do_pending(project_name: str | None = None):
     if project_name:
         proj = Project(name=project_name).load()
         entries = list(reversed(list(TimeWarriorEntry.unlogged_by_project(proj.name))))
@@ -61,17 +62,17 @@ def do_pending(project_name: str = None):
     tbl = TableState.db.table(Project.__name__).all()
     _projects = [Project(name=item["name"]).load() for item in tbl]
     # root_projects: set[Project] = {p for p in _projects if p.is_root}
-    _pending: List["TimeWarriorEntry"] = []
+    _pending: list[TimeWarriorEntry] = []
     for proj in _projects:
         _proj_entries = list(TimeWarriorEntry.unlogged_by_project(proj.name))
         _pending += _proj_entries
-    _pending = list(reversed(sorted(_pending, key=lambda e: e.start)))
+    _pending = sorted(_pending, key=lambda e: e.start, reverse=True)
     for i in _pending:
         print(i)
 
 
 @app.command(name="list")
-def do_list(project_name: str = None, synced: bool = None):
+def do_list(project_name: str | None = None, synced: bool | None = None):
     bquery = Query().teamwork_id.exists()
     if synced is False:
         bquery = ~bquery
@@ -137,7 +138,7 @@ def do_create(name: str, commit: bool = False, distribute: bool = False):
 
 
 def get_project_tags() -> set[str]:
-    return set([t["name"].lower() for t in Project.table_of().all()])
+    return {t["name"].lower() for t in Project.table_of().all()}
 
 
 def build_timew_source(
@@ -156,21 +157,21 @@ def get_timew_entry(
 ) -> TimeWarriorRawEntry:
     source = source or build_timew_source([lambda v: v["id"] != id], project_tags=project_tags)
     try:
-        entry: TimeWarriorRawEntry = next((i for i in source.loader.entries if i.id == id))
+        entry: TimeWarriorRawEntry = next(i for i in source.loader.entries if i.id == id)
     except StopIteration as e:
         raise RuntimeError("Entry not found!") from e
     return entry
 
 
 @app.command(name="swap")
-def do_swap(new_project: str, ids: list[int], annotation: Optional[str] = None):
+def do_swap(new_project: str, ids: list[int], annotation: str | None = None):
     """Swap project for given entry ids."""
     project_tags = get_project_tags()
 
     def swap(id: int):
         entry = get_timew_entry(id, project_tags=project_tags)
         print("Found entry:", entry)
-        current_proj_name = next((i for i in entry.tags if i.lower() in project_tags))
+        current_proj_name = next(i for i in entry.tags if i.lower() in project_tags)
         current_proj = Project(name=current_proj_name.upper()).load()
         print("[bright_red] :x: Will remove project:", current_proj)
         print("[bright_red] :x: Will remove annotation:", entry.annotation)

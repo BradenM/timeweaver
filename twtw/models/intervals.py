@@ -11,7 +11,7 @@ class TimeRange:
     start: datetime
     end: datetime
 
-    def contains_datetime(self, other: datetime, buffer: timedelta = None) -> bool:
+    def contains_datetime(self, other: datetime, buffer: timedelta | None = None) -> bool:
         dt_buff = buffer or timedelta(seconds=0)
         start = self.start - dt_buff
         end = self.end + dt_buff
@@ -45,7 +45,7 @@ class TimeRange:
         date_fmt = "{:%-I:%M%p}"
         return "-".join(
             [
-                "{:6}".format(date_fmt.format(d))
+                f"{date_fmt.format(d):6}"
                 for d in (
                     self.start,
                     self.end,
@@ -60,21 +60,21 @@ class TimeRange:
 
     @staticmethod
     def as_day(in_dtime: datetime) -> str:
-        return "{:%b %d}".format(in_dtime)
+        return f"{in_dtime:%b %d}"
 
     @property
     def day(self) -> str:
-        return "{:%b %d}".format(self.start)
+        return f"{self.start:%b %d}"
 
 
 @attrs.define(frozen=True, slots=False)
 class IntervalAggregator:
     intervals: list[TimeRange] = attrs.field(factory=list)
 
-    def add(self, interval: TimeRange) -> "IntervalAggregator":
+    def add(self, interval: TimeRange) -> IntervalAggregator:
         return attrs.evolve(self, intervals=[*self.intervals, interval])
 
-    def remove(self, interval: TimeRange) -> "IntervalAggregator":
+    def remove(self, interval: TimeRange) -> IntervalAggregator:
         ivals = [
             i for i in self.intervals if not i.start == interval.start and i.end == interval.end
         ]

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 import attrs
 from dateutil import parser as dparser

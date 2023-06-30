@@ -22,7 +22,7 @@ class CSVCreateEntryFlow(BaseCreateEntryFlow):
     project: Project = attrs.field(default=None)
     path: Path = attrs.field(default=None)
 
-    def load_context(self, event: EventData) -> None:  # noqa
+    def load_context(self, event: EventData) -> None:
         source = EntriesSource.from_loader(CSVEntryLoader, self.path)
         self.context: EntryContext = EntryContext(source=source)
         self.entry_machine = Machine(
@@ -85,7 +85,7 @@ class CSVCreateEntryFlow(BaseCreateEntryFlow):
             ],
         )
 
-    def choose_entries(self, event: EventData):  # noqa
+    def choose_entries(self, event: EventData):
         disabled_help = "No Project Found!"
         results: list[EntryFlowModel] = self.reporter.prompt.multiselect(
             self.context.models,
@@ -101,10 +101,10 @@ class CSVCreateEntryFlow(BaseCreateEntryFlow):
                 mod.skip()
         self.context.flags |= FlowModifier.ENTRIES_SELECTED
 
-    def create_drafts(self, event: EventData):  # noqa
+    def create_drafts(self, event: EventData):
         pass
 
-    def review_drafts(self, event: EventData):  # noqa
+    def review_drafts(self, event: EventData):
         table_width = round(self.reporter.console.width // 1.15)
         table = Table(
             show_footer=True,

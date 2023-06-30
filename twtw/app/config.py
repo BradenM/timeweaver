@@ -15,5 +15,5 @@ def do_list():
 def do_set(key: str, value: str):
     _config = config.copy(update={key: value}, deep=True)
     _config.save()
-    print("[b bright_green]Set {} => {}".format(key, value))
+    print(f"[b bright_green]Set {key} => {value}")
     print(_config)

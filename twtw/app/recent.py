@@ -148,7 +148,7 @@ def get_recent(days: int = 1, unlogged: bool = False):
 
 
 @app.command(name="aggregate")
-def do_aggregate(days: int = None):
+def do_aggregate(days: int | None = None):
     """Aggregate recent entries by project."""
     filters = [
         TagFilter("@work"),

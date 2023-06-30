@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 import rich.prompt
 import typer
@@ -24,7 +23,7 @@ def project(ctx: typer.Context):
     ctx.call_on_close(_close_db)
 
 
-def parse_tags(in_tags: Optional[str] = None) -> Optional[list[str]]:
+def parse_tags(in_tags: str | None = None) -> list[str] | None:
     if not in_tags:
         return []
     _tags = in_tags.split(",")
@@ -68,9 +67,9 @@ def do_list():
 @app.command()
 def add(
     name: str,
-    tags: Optional[str] = None,
-    teamwork_name: Optional[str] = None,
-    teamwork_id: Optional[int] = None,
+    tags: str | None = None,
+    teamwork_name: str | None = None,
+    teamwork_id: int | None = None,
 ):
     tw_proj = None
     if teamwork_name and teamwork_id:
@@ -90,7 +89,7 @@ def add(
 
 
 @app.command()
-def modify(name: str, new_name: Optional[str] = None, tags: Optional[str] = None):
+def modify(name: str, new_name: str | None = None, tags: str | None = None):
     proj = Project(name=name).load()
     _tags = parse_tags(tags)
     print(new_name)
@@ -104,7 +103,7 @@ def modify(name: str, new_name: Optional[str] = None, tags: Optional[str] = None
 
 
 @app.command()
-def associate(name: str, path: Optional[Path] = None):
+def associate(name: str, path: Path | None = None):
     proj = Project(name=name).load()
     _path = path or Path.cwd()
     proj_repo = ProjectRepository(path=_path)

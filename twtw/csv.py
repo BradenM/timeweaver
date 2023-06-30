@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
-
 """TWTW CSV parsing."""
 
 import csv
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Optional
 
 import dpath.util
 from dateutil import parser as dateparser
@@ -35,7 +33,7 @@ class CSVData:
     def end(self):
         return dateparser.parse(self.time_to).astimezone()
 
-    def _get_project_meta(self, activity: str) -> Optional[EntryMeta]:
+    def _get_project_meta(self, activity: str) -> EntryMeta | None:
         with_gen = activity + ".GENERAL"
         meta = dpath.util.get(META_MAP, with_gen, separator=".", default=None)
         if not meta:
@@ -45,7 +43,7 @@ class CSVData:
     @property
     def project_meta(self) -> EntryMeta:
         meta_norm = self.activity.upper().strip()
-        meta_activity = "".join((p.upper().strip() for p in self.activity.split() if p))
+        meta_activity = "".join(p.upper().strip() for p in self.activity.split() if p)
         meta_opts = [
             self._get_project_meta(v)
             for v in (
@@ -60,7 +58,7 @@ class CSVData:
         return meta
 
     @classmethod
-    def from_row(cls, data: Dict[str, Union[str, float]]) -> Optional["CSVData"]:
+    def from_row(cls, data: dict[str, str | float]) -> Optional["CSVData"]:
         time_to = data.get("To", None)
         if time_to:
             activity = data["Activity type"]
@@ -76,7 +74,7 @@ class CSVData:
             )
 
 
-def parse_csv(file_path: Path) -> List[CSVData]:
+def parse_csv(file_path: Path) -> list[CSVData]:
     entries = []
     with file_path.open(newline="") as csvfile:
         reader = csv.DictReader(csvfile)
@@ -103,7 +101,7 @@ def create_teamwork_entry(entry: CSVData):
             "hours": str(delta.hours),
             "minutes": str(delta.minutes),
             "isbillable": False,
-            "tags": ",".join(set((str(s) for s in meta.tags))),
+            "tags": ",".join({str(s) for s in meta.tags}),
         },
     }
 

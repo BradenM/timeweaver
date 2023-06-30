@@ -38,10 +38,10 @@ class TableModel(BaseModel, arbitrary_types_allowed=True):
     def dict(
         self,
         *,
-        include: Union["AbstractSetIntStr", "MappingIntStrAny"] = None,
-        exclude: Union["AbstractSetIntStr", "MappingIntStrAny"] = None,
+        include: Union["AbstractSetIntStr", "MappingIntStrAny"] | None = None,
+        exclude: Union["AbstractSetIntStr", "MappingIntStrAny"] | None = None,
         by_alias: bool = False,
-        skip_defaults: bool = None,
+        skip_defaults: bool | None = None,
         exclude_unset: bool = False,
         exclude_defaults: bool = False,
         exclude_none: bool = False,
