@@ -115,17 +115,17 @@ def do_create(name: str, commit: bool = False, distribute: bool = False):
         try:
             flow.choose()
         except KeyboardInterrupt as e:
-            raise typer.Abort(e)
+            raise typer.Abort(e)  # noqa: B904
         except Exception as e:
             print(e)
         try:
             flow.choose()
         except KeyboardInterrupt:
-            raise typer.Abort(e)
+            raise typer.Abort(e)  # noqa: B904, F821
         except Exception as e:
             print(e)
     except KeyboardInterrupt as e:
-        raise typer.Abort(e)
+        raise typer.Abort(e)  # noqa: B904
     except Exception as e:
         print("Error:")
         print(e)

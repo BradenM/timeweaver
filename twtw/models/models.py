@@ -172,19 +172,19 @@ class Project(TableModel):
         return getattr(self, "name", None) == getattr(other, "name", None)
 
     @property
-    @lru_cache  # to prevent early parent invocation.
+    @lru_cache  # to prevent early parent invocation.  # noqa: B019
     def is_root(self) -> bool:
         return self.parent is None
 
     @property
-    @lru_cache  # to prevent early parent invocation.
+    @lru_cache  # to prevent early parent invocation.  # noqa: B019
     def nickname(self):
         if self.is_root:
             return self.name
         return self.name.split(".")[-1]
 
     @property
-    @lru_cache
+    @lru_cache  # noqa: B019
     def parent(self) -> Project | None:
         if "." not in self.name:
             return None

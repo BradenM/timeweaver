@@ -240,7 +240,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
             lines = changelog.splitlines(keepends=True)
             changelog = "".join(
                 itertools.filterfalse(
-                    lambda l: l.strip().startswith("//") or not len(l.strip()), lines
+                    lambda line: line.strip().startswith("//") or not len(line.strip()), lines
                 )
             )
             mod.log_entry.description = changelog
