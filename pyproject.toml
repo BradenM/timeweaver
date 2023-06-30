@@ -53,6 +53,7 @@ pydocstyle = "^6.1.1"
 ward = "^0.67.0b0"
 ipython = "^8.14.0"
 ipdb = "^0.13.13"
+ruff = "^0.0.275"
 
 [tool.ward]
 path = ["tests"]  # supply multiple paths using a list
@@ -61,7 +62,7 @@ path = ["tests"]  # supply multiple paths using a list
 [tool.black]
 line-length = 100
 skip-string-normalization = false
-target-version = ['py310']
+target-version = ['py311']
 include = '\.pyi?$'
 exclude = '''/(\.eggs|\.mpy_cache|\.direnv|build|dist|snippets)/'''
 
@@ -81,6 +82,32 @@ ignore-init-method-arguments = true
 plugins = "pydantic.mypy,tinydb.mypy_plugin"
 disallow_untyped_defs = true
 follow_imports = "normal"
+
+[tool.ruff]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    # "I",  # isort
+    # "D",  # pydocstyle
+    "UP", # pyupgrade
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+    # "PT",  # flake8-pytest-style
+    "RUF" # ruff specific rules
+]
+ignore = [
+    "E501", # line too long - let black handle.
+    "C901", # too complex
+    "C408", # rewrite as literal; makes comprehensions harder sometimes imo
+    "B008", # no function call as arg default; typer uses this pattern.
+]
+line-length = 100
+target-version = 'py311'
+src = ['twtw']
+
+[tool.ruff.pyupgrade]
+keep-runtime-typing = true
 
 [build-system]
 requires = ['poetry-core']
