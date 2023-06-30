@@ -30,6 +30,11 @@ class TimeWarriorRawEntry(RawEntry):
         tw.tag(f"@{self.id}", value)
         return attrs.evolve(self, tags=self.tags | {value})
 
+    def remove_tag(self, value: str) -> TimeWarriorRawEntry:
+        tw: sh.Command = sh.Command("timew")
+        tw.untag(f"@{self.id}", value)
+        return attrs.evolve(self, tags=self.tags - {value})
+
 
 @attrs.define
 class TimeWarriorLoader(EntryLoader):
@@ -56,6 +61,18 @@ class TimeWarriorLoader(EntryLoader):
             tags -= {"@work", project_tag}
             annot = ", ".join(tags)
             data.setdefault("annotation", annot)
+        else:
+            tags = set(
+                [
+                    t
+                    for t in data.get("tags", [])
+                    if t not in ("@work", "logged") and "twtw:id" not in t
+                ]
+            )
+            tag_splits = [t.split(".") for t in tags]
+            if (project_tag := next((t for t in tag_splits if len(t) == 2), None)) is not None:
+                if (annot := next(iter(tags - {".".join(project_tag)}), None)) is not None:
+                    data.setdefault("annotation", annot)
         return TimeWarriorRawEntry(**data, start=start, end=end)
 
 
