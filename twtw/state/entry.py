@@ -6,7 +6,7 @@ import inspect
 from enum import auto, unique
 from functools import cached_property, partialmethod
 from inspect import Parameter
-from typing import Callable, ClassVar, Iterator, ParamSpec, TypeVar
+from typing import Callable, ClassVar, Iterator, ParamSpec, Protocol, TypeVar
 
 import attrs
 import questionary
@@ -164,8 +164,13 @@ class EntryFlowModel:
     save_entry_handler = partialmethod(bound_unwrap, f=save_entry)
 
 
+class EntryFlowProtocol(Protocol):
+    start: Callable[[], None]
+    choose: Callable[[], None]
+
+
 @attrs.define
-class AbstractEntryFlow(abc.ABC):
+class AbstractEntryFlow(abc.ABC, EntryFlowProtocol):
     FlowModifier: ClassVar[FlowModifier] = FlowModifier
 
     machine: Machine = attrs.field()
@@ -341,6 +346,7 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
         for raw_entry in targets:
             model = self.context.create_model(raw_entry=raw_entry)
             self.entry_machine.add_model(model)
+        self.entry_machine.get_graph().draw(self.__class__.__name__ + ".png", prog="dot")
         self.entry_machine.dispatch("validate")
 
     def proceed_entries(self, event: EventData):
