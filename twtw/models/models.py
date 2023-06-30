@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 import re
 from collections import defaultdict
 from datetime import datetime
+from functools import lru_cache
 from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterator, Optional, Pattern, Union
@@ -12,10 +14,10 @@ import git
 from mako.template import Template
 from pydantic import BaseModel, Field, validator
 from rich.table import Table
+from taskw import TaskWarrior
 from tinydb.queries import Query, QueryLike
 from typing_extensions import Literal, TypeAlias
 
-from taskw import TaskWarrior
 from twtw.models.abc import RawEntry
 from twtw.models.timewarrior import TimeRange
 
@@ -25,6 +27,8 @@ if TYPE_CHECKING:
     from rich.console import Console, ConsoleOptions, RenderResult
 
 TWTaskStatus: TypeAlias = Literal["pending", "completed"]
+
+logger = logging.getLogger(__name__)
 
 
 class TaskWarriorTask(BaseModel):
@@ -150,7 +154,6 @@ class TeamworkTimeEntryResponse(BaseModel):
 
 class Project(TableModel):
     name: str
-    parent: Optional[Project] = None
     tags: list[str] = Field(default_factory=list)
     repos: list[ProjectRepository] = Field(default_factory=list)
     teamwork_project: Optional[TeamworkProject] = None
@@ -162,18 +165,28 @@ class Project(TableModel):
         return getattr(self, "name", None) == getattr(other, "name", None)
 
     @property
+    @lru_cache()  # to prevent early parent invocation.
     def is_root(self) -> bool:
         return self.parent is None
 
     @property
+    @lru_cache()  # to prevent early parent invocation.
     def nickname(self):
         if self.is_root:
             return self.name
         return self.name.split(".")[-1]
 
     @property
-    def field_defaults(self) -> dict[str, Any]:
-        return {"exclude": {"parent"}}
+    @lru_cache()
+    def parent(self) -> Project | None:
+        if "." not in self.name:
+            return None
+        parent_name = ".".join(self.name.split(".")[:-1])
+        parent = Project(name=parent_name).load()
+        if not parent.is_loaded:
+            logger.debug("parent is not loaded: %r (loaded: %s)", parent, parent.is_loaded)
+            parent.save()
+        return parent
 
     def query(self) -> QueryLike:
         return Query().name == self.name
@@ -181,20 +194,6 @@ class Project(TableModel):
     @validator("name", pre=True, always=True)
     def _validate_name(cls, v: str) -> str:
         return v.strip().upper()
-
-    @validator("parent", pre=True, always=True)
-    def _validate_parent(cls, v: Optional[Project], values: dict[str, any]) -> Project | None:
-        if v:
-            return v
-        _name: str = values.get("name")
-        _name_parts = _name.split(".")
-        _name_parts.pop()
-        if any(_name_parts):
-            parent_name = ".".join(_name_parts)
-            parent_obj = Project(name=parent_name).load()
-            parent_obj.save()
-            return parent_obj
-        return None
 
     @property
     def repos_by_name(self) -> dict[str, ProjectRepository]:
