@@ -3,15 +3,30 @@ from typing import Optional
 
 import rich.prompt
 import typer
-from rich import print
+from rich import box, print
+from rich.align import Align
 from rich.console import Group
 from rich.panel import Panel
+from rich.table import Table
 from rich.tree import Tree
 
+from twtw.api.ui import Reporter
 from twtw.db import TableState
 from twtw.models.models import Project, ProjectRepository, TeamworkProject
+from twtw.recent import get_project_aggregates
 
 app = typer.Typer()
+
+
+@app.callback()
+def project(ctx: typer.Context):
+    """Project commands"""
+
+    def _close_db():
+        print("Closing database...")
+        TableState.db.close()
+
+    ctx.call_on_close(_close_db)
 
 
 def parse_tags(in_tags: Optional[str] = None) -> Optional[list[str]]:
@@ -21,9 +36,43 @@ def parse_tags(in_tags: Optional[str] = None) -> Optional[list[str]]:
     return [t.strip() for t in _tags]
 
 
-# def project_as_table(proj: Project):
-#     table = Table(row_styles=["", "dim"])
-#     table.add_column("")
+@app.command(name="aggregate")
+def do_aggregate(days: int = None):
+    reporter = Reporter()
+    table_width = round(reporter.console.width // 1.15)
+    table = Table(
+        show_footer=True,
+        show_header=True,
+        header_style="bold bright_white",
+        box=box.SIMPLE_HEAD,
+        width=table_width,
+        title="Project Aggregates",
+    )
+    table.add_column("Project", no_wrap=True)
+    table.add_column("Total", no_wrap=True, justify="right")
+    project_aggrs = get_project_aggregates(days)
+    for project, aggr in project_aggrs.items():
+        table.add_row(project, aggr.duration)
+    reporter.console.print(Align.center(Panel(table, padding=(1, 3))))
+
+
+def create_project_node(project: Project, root: Tree) -> Tree:
+    """Create project tree node."""
+    child_node = root.add(f"[bold underline bright_white]{project.nickname}", highlight=True)
+    child_tw = project.resolve_teamwork_project()
+    if child_tw:
+        child_node.add(child_tw)
+    if any(project.tags):
+        child_node.add("[bold cyan]Tags: [/][i]" + ", ".join(project.tags))
+    repo_node = child_node.add("[bold medium_spring_green]Repos")
+    for repo in project.repos:
+        repo_node.add(
+            Group(
+                f"[b green]{repo.name}",
+                str(repo.path),
+            )
+        )
+    return child_node
 
 
 @app.command(name="list")
@@ -32,26 +81,12 @@ def do_list():
     _projects = [Project(name=item["name"]).load() for item in tbl]
     root_projects: set[Project] = {p for p in _projects if p.is_root}
     tree = Tree(label="[b bright_white]Projects", highlight=True, expanded=True)
+
     for root in root_projects:
-        tw_proj = root.resolve_teamwork_project()
-        tags = "[bold bright_white]Tags: [/bold bright_white]" + ", ".join(root.tags)
-        root_group = Group(f"[b bright_cyan]{root.name}")
-        root_attrs_group = Group(tags)
-        if tw_proj:
-            root_attrs_group.renderables.append(tw_proj)
-        root_group.renderables.append(Panel.fit(root_attrs_group, border_style="cyan"))
-        proj_family = tree.add(root_group)
+        proj_family = create_project_node(root, tree)
         children: set[Project] = {p for p in _projects if p.parent == root}
         for child in children:
-            child_node = proj_family.add(f"[b bright_white]{child.nickname}", highlight=True)
-            repo_node = child_node.add("[bright_white]Repos")
-            for repo in child.repos:
-                repo_node.add(
-                    Group(
-                        f"[b green]{repo.name}",
-                        str(repo.path),
-                    )
-                )
+            create_project_node(child, proj_family)
     print(tree)
 
 
