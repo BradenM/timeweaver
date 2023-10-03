@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "timewarrior-teamwork"
+name = "timeweaver"
 version = "0.1.2"
 description = "TimeWarrior plugin for integration with Teamwork"
 authors = ["Braden Mars <bradenmars@bradenmars.me>"]
