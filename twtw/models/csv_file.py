@@ -34,6 +34,10 @@ class CSVRawEntry(RawEntry):
     def add_tag(self, *_) -> CSVRawEntry:
         return self
 
+    def remove_tag(self, *_):
+        return self
+
+
 
 @attrs.define
 class CSVEntryLoader(EntryLoader):
