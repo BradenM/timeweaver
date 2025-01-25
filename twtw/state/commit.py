@@ -198,7 +198,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
         while True:
             # rotate and distribute commits until there are none left.
             model = models[0]
-            models.rotate(-1)
+            models.rotate(1)
             model_share = round(model_shares[model.raw_entry] * len(all_commits))
             model_share = model_share if model_share > 0 else 1
             _commits = list(itertools.islice(commits, model_share))
