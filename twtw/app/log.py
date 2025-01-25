@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Optional, TypeVar
 
 import attr
 import questionary
+import sh
 import typer
 from pydantic import BaseModel
 from rich import print
@@ -198,3 +200,24 @@ def do_reannotate(id: int, annotation: str):
     print(entry)
     print("[bold bright_green]Done!")
 
+
+class TimeSide(str, Enum):
+    start = "start"
+    end = "end"
+
+
+@app.command(name="modify-relative")
+def do_modify_relative(side: TimeSide, id: int, time: str):
+    entry = get_timew_entry(id)
+    time_obj = datetime.strptime(time, "%I:%M%p").time()
+    date_to_modify = entry.start if side == "start" else entry.end
+    new_date = datetime.combine(date_to_modify.date(), time_obj)
+    print("[bold bright_green]Found entry:[/]", entry)
+    print(
+        f"Will modify: {entry.str_id} {side!s} from {date_to_modify} ({date_to_modify.isoformat()}) to {new_date} ({new_date.isoformat()})"
+    )
+    tw: sh.Command = sh.Command("timew")
+    cmd = tw.modify.bake(side.value, entry.str_id, new_date.isoformat())
+    print(f"[bright_cyan]Command:[/] [i bright_black]: {cmd!s}")
+    typer.confirm("Confirm changes?", abort=True)
+    cmd()
