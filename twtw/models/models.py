@@ -181,7 +181,7 @@ class TeamworkTimeEntryRequest(BaseModel):
 
 
 class TeamworkTimeEntryResponse(BaseModel):
-    time_log_id: int = Field(..., alias="timeLogId")
+    time_log_id: int | None = Field(None, alias="timeLogId")
     status: str = Field(..., alias="STATUS")
 
 
