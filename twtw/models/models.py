@@ -260,7 +260,9 @@ class CommitEntry(TableModel):
         return str(self.commit.hexsha)
 
     def query(self) -> QueryLike:
-        return Query().sha == self.sha
+        return (Query().sha == self.sha) | Query().fragment(
+            self.dict(include={"title", "commit_type", "scope"})
+        )
 
     def save(self) -> None:
         _data = self.dict(exclude={"commit"})
