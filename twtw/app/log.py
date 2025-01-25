@@ -19,6 +19,7 @@ from twtw.models.models import LogEntry, Project
 from twtw.models.timewarrior import TimeWarriorEntry, TimeWarriorLoader, TimeWarriorRawEntry
 from twtw.state.commit import TimeWarriorCreateEntryFlow
 from twtw.state.csv import CSVCreateEntryFlow
+from twtw.state.entry import CreateFlowState
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 T = TypeVar("T")
@@ -102,21 +103,31 @@ def do_csv(csv_path: Path, commit: bool = False):
 
 
 @app.command(name="create")
-def do_create(name: str, commit: bool = False, distribute: bool = False):
+def do_create(name: str, commit: bool = False, draft: bool = False, distribute: bool = False):
     proj = Project(name=name).load()
     flow = TimeWarriorCreateEntryFlow(proj=proj, git_author=config.GIT_USER)
     flow.start()
-    if commit is False:
-        flow.dry_run = True
+    if commit and draft:
+        raise RuntimeError("Cannot both commit and draft logs!")
+    is_dryrun = not commit and not draft
+    if is_dryrun:
+        flow.dry_run = is_dryrun
+    if draft:
+        flow.draft_logs = draft
     flow.should_distribute = distribute
-
     while True:
+        if flow.machine.is_state(CreateFlowState.CANCEL, flow):
+            print(
+                "[bright_black][bold](DRY RUN)[/bold] Pass [bright_white bold]--commit[/bright_white bold] to submit logs or [bright_white bold]--draft[/bright_white bold] to submit drafts."
+            )
+            print("[dark_orange]Cancelled!")
+            break
         try:
             flow.choose()
         except KeyboardInterrupt as e:
             raise typer.Abort(e) from e
         except Exception as e:
-            print(e)
+            print(e, type(e))
             break
         finally:
             print(":tada:  [b bright_green]Done!")
@@ -186,3 +197,4 @@ def do_reannotate(id: int, annotation: str):
     entry = entry.remove_tag(entry.annotation).add_tag(annotation)
     print(entry)
     print("[bold bright_green]Done!")
+
