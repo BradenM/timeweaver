@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 import attr
 import git
@@ -47,6 +47,10 @@ class PathSerializer(Serializer):
         return Path(s)
 
 
+class PosixPathSerializer(PathSerializer):
+    OBJ_CLASS = PosixPath
+
+
 class CommitSerializer(Serializer):
     OBJ_CLASS = git.Commit
 
@@ -66,6 +70,7 @@ class CommitSerializer(Serializer):
 def create_db_storage(storage_cls: type[Storage] = JSONStorage) -> SerializationMiddleware:
     storage = SerializationMiddleware(CachingMiddleware(storage_cls))
     storage.register_serializer(PathSerializer(), "TinyPath")
+    storage.register_serializer(PosixPathSerializer(), "TinyPosixPath")
     storage.register_serializer(DateTimeSerializer(), "TinyDate")
     storage.register_serializer(CommitSerializer(), "TinyCommit")
     storage.register_serializer(RawEntrySerializer(), "TinyRawEntry")
