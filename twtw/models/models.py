@@ -85,17 +85,43 @@ class ProjectRepository(TableModel):
         raise ValueError(f"No ProjectRepository found at working dir: {path}")
 
     def iter_commits_by_author(
-        self, author_email: str, *, unlogged_only: bool = True, unlogged_context: int = 5
+        self, author_email: str, *, unlogged_context: int = 50, batch_size: int = 50
     ) -> Iterator[CommitEntry]:
         context_consumed = 0
-        for commit in self.git_repo.iter_commits(max_count=350):
-            if commit.author.email == author_email:
-                commit = CommitEntry.parse_commit(commit)
+        skip_count = 0
+
+        seen_shas = set()
+
+        while True:
+            commits = self.git_repo.iter_commits(
+                max_count=batch_size, grep=author_email, all=False, skip=skip_count, rev="HEAD"
+            )
+            fetched_commits = 0
+
+            for raw_commit in commits:
+                logger.info("Commit: %s | %s", raw_commit.hexsha, raw_commit.summary)
+                # sanity checks
+                if raw_commit.hexsha in seen_shas:
+                    logger.debug("already seen commit (sha=%s)", raw_commit.hexsha)
+                    continue
+                if not raw_commit.author.email == author_email:
+                    continue
+                fetched_commits += 1
+                commit = CommitEntry.parse_commit(raw_commit)
                 yield commit
-                if commit.logged:
-                    if context_consumed >= unlogged_context:
-                        break
+
+                # if we run into more already logged commits than unlogged_context, break early
+                is_logged = getattr(commit, "logged", False)
+                if is_logged:
                     context_consumed += 1
+                    if context_consumed >= unlogged_context:
+                        return
+
+            # if we didn't fetch any commits, we're done
+            if not fetched_commits:
+                break
+
+            skip_count += batch_size
 
     def __hash__(self):
         return hash(self.path)
