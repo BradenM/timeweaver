@@ -17,8 +17,7 @@ from twtw.models.timewarrior import TimeWarriorEntry, TimeWarriorLoader
 
 
 class EntriesFilter(Protocol):
-    def __call__(self, v: dict[str, Any]) -> bool:
-        ...
+    def __call__(self, v: dict[str, Any]) -> bool: ...
 
 
 @attrs.define
@@ -28,6 +27,25 @@ class DaysFilter(EntriesFilter):
     def __call__(self, v: dict[str, Any]) -> bool:
         min_date = arrow.now().shift(days=-self.days)
         return arrow.get(v.get("end", min_date.shift(days=-1))) <= min_date
+
+
+@attrs.define
+class DateFilter(EntriesFilter):
+    date: arrow.Arrow
+
+    @classmethod
+    def from_string(cls, date: str) -> "DateFilter":
+        return cls(arrow.get(date))
+
+    def __call__(self, v: dict[str, Any]) -> bool:
+        start_date = arrow.get(v["start"])
+        end = v.get("end", None)
+        if not end:
+            return True
+        if start_date.date() == self.date.date():
+            print(f"({v['id']}) Start: ({start_date}) == {self.date}")
+            return False
+        return True
 
 
 @attrs.define
@@ -92,11 +110,13 @@ def recent():
 
 
 @app.command(name="view")
-def get_recent(days: int = 1, unlogged: bool = False):
+def get_recent(days: int = 1, unlogged: bool = False, date: str | None = None):
     """Get recent entries."""
     filters = [TagFilter("@work"), DaysFilter(days)]
     if unlogged:
         filters.append(TagFilter("logged", exclude=True))
+    if date:
+        filters = [TagFilter("@work"), DateFilter.from_string(date)]
     loader = DataLoader(filters=filters)
     entries = loader.load_data()
     reporter = Reporter()
