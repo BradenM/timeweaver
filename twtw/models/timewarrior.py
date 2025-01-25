@@ -23,6 +23,14 @@ class TimeWarriorRawEntry(RawEntry):
     def is_logged(self) -> bool:
         return "logged" in self.tags
 
+    @property
+    def is_drafted(self) -> bool:
+        return "drafted" in self.tags
+
+    @property
+    def str_id(self) -> str:
+        return f"@{self.id}"
+
     def is_project(self, project: Project) -> bool:
         return project.name.lower() in self.tags
 
@@ -66,7 +74,7 @@ class TimeWarriorLoader(EntryLoader):
             tags = {
                 t
                 for t in data.get("tags", [])
-                if t not in ("@work", "logged") and "twtw:id" not in t
+                if t not in ("@work", "logged", "drafted") and "twtw:" not in t
             }
             tag_splits = [t.split(".") for t in tags]
             if (project_tag := next((t for t in tag_splits if len(t) == 2), None)) is not None:
