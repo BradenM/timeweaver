@@ -11,18 +11,14 @@ from typing import ClassVar, ParamSpec, Protocol, TypeVar
 
 import attrs
 import questionary
+from tinydb import Query
 from transitions import EventData, Machine
 
 from twtw.api import Reporter
 from twtw.api.teamwork import TeamworkApi
 from twtw.db import TableState
 from twtw.models.abc import EntriesSource, RawEntry
-from twtw.models.models import (
-    LogEntry,
-    Project,
-    TeamworkTimeEntryRequest,
-    TeamworkTimeEntryResponse,
-)
+from twtw.models.models import LogEntry, Project, TeamworkTimeEntryResponse
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -49,6 +45,7 @@ class FlowModifier(enum.Flag):
 
     DISTRIBUTE_COMMITS = auto()
     DRY_RUN = auto()
+    DRAFT_LOGS = auto()
 
     HAS_ENTRIES = ENTRIES_AVAILABLE | ENTRIES_SELECTED
     HAS_REPOS = REPOS_AVAILABLE | REPOS_SELECTED
@@ -129,36 +126,64 @@ class EntryFlowModel:
     def dry_run(self) -> bool:
         return bool(self.flags & FlowModifier.DRY_RUN)
 
+    @property
+    def draft_logs(self) -> bool:
+        return bool(self.flags & FlowModifier.DRAFT_LOGS)
+
     def create_entry(self, *args, **kwargs) -> EntryFlowModel:
-        entry = LogEntry(
-            time_entry=self.raw_entry,
-            project=self.project,
-            description=str(self.description or self.raw_entry.description),
+        twtw_id_tag = next(
+            (
+                int(t.split("twtw:id:drafted:")[-1])
+                for t in self.raw_entry.tags
+                if t.startswith("twtw:id:drafted")
+            ),
+            None,
         )
+        if twtw_id_tag:
+            print("Loading entry from tw id:", twtw_id_tag)
+            entry = LogEntry.parse_obj(LogEntry.table_of().get(Query().teamwork_id == twtw_id_tag))
+            print("Found entry from tw id:", entry, twtw_id_tag)
+        else:
+            entry = LogEntry(
+                time_entry=self.raw_entry,
+                project=self.project,
+                description=str(self.description or self.raw_entry.description),
+            )
         self.log_entry = entry
         return self
 
-    def create_payload(self) -> TeamworkTimeEntryRequest:
-        payload = TeamworkTimeEntryRequest.from_entry(
-            entry=self.log_entry, person_id=self.teamw_api.person_id
-        )
-        return payload
+    # def create_payload(self) -> TeamworkTimeEntryRequest:
+    #     payload = TeamworkTimeEntryRequest.from_entry(
+    #         entry=self.log_entry, person_id=self.teamw_api.person_id
+    #     )
+    #     return payload
 
     def commit_entry(self, *args, **kwargs):
-        payload = self.create_payload()
-        response = self.teamw_api.create_time_entry(
-            self.project.resolve_teamwork_project().project_id, payload
-        )
-        if not response.status == "OK":
-            raise RuntimeError(
-                f"Failed to post entry, teamwork responsed with: {response.status} ({response})"
+        # payload = self.create_payload()
+        tw_project = self.project.resolve_teamwork_project()
+        if not tw_project:
+            raise RuntimeError(f"Missing teamwork project for project: {self.project.name}")
+        if self.log_entry.teamwork_id:
+            response = self.teamw_api.update_time_entry(
+                log_entry=self.log_entry,
+            )
+        else:
+            response = self.teamw_api.create_time_entry(
+                log_entry=self.log_entry, project_id=tw_project.project_id
             )
         self.teamw_response = response
 
     def save_entry(self, *args, **kwargs):
+        was_drafted = "drafted" in self.log_entry.time_entry.tags
+        log_state = "drafted" if self.draft_logs and not was_drafted else "logged"
         if self.teamw_response:
             self.log_entry.teamwork_id = self.teamw_response.time_log_id
-        self.log_entry.time_entry = self.log_entry.time_entry.add_tags("logged")
+            self.log_entry.time_entry = self.log_entry.time_entry.add_tags(
+                f"twtw:id:{log_state}:{self.teamw_response.time_log_id}"
+            )
+        print("setting tag:", self.log_entry.time_entry, log_state)
+        print(self.log_entry)
+        self.log_entry.time_entry = self.log_entry.time_entry.add_tags(log_state)
         self.log_entry.save()
 
     bound_unwrap = partialmethod(_unwrap_event)
@@ -249,6 +274,7 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
             dest=CreateFlowState.REPOS,
             after="choose_repos",
             conditions="are_repos_available",
+            unless="draft_logs",
         )
         machine.add_transition(
             trigger="choose",
@@ -256,6 +282,14 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
             dest=CreateFlowState.COMMITS,
             conditions=["are_commits_available"],
             before="choose_commits",
+            unless="draft_logs",
+        )
+        # draft -> cancel (dry run)
+        machine.add_transition(
+            trigger="choose",
+            source=CreateFlowState.DRAFT,
+            dest=CreateFlowState.CANCEL,
+            conditions=["dry_run"],
         )
         machine.add_transition(
             trigger="choose",
@@ -291,6 +325,17 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
             self.context.flags |= FlowModifier.DRY_RUN
             return
         self.context.flags |= ~FlowModifier.DRY_RUN
+
+    @property
+    def draft_logs(self) -> bool:
+        return bool(self.context.flags & FlowModifier.DRAFT_LOGS)
+
+    @draft_logs.setter
+    def draft_logs(self, value: bool):
+        if value:
+            self.context.flags |= FlowModifier.DRAFT_LOGS
+            return
+        self.context.flags |= ~FlowModifier.DRAFT_LOGS
 
     @property
     def has_entries(self) -> bool:
@@ -363,7 +408,8 @@ class BaseCreateEntryFlow(AbstractEntryFlow):
                 "[bright_black][bold](DRY RUN)[/bold] Pass [bright_white bold]--commit[/bright_white bold] to submit logs."
             )
             return False
-        if not self.reporter.prompt.confirm("Commit valid entries?"):
+        action = "Draft" if self.draft_logs else "Commit"
+        if not self.reporter.prompt.confirm(f"{action} valid entries?"):
             self.cancel("Canceled by user.")
             return False
         return True
