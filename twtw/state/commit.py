@@ -43,6 +43,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
             filters=[
                 lambda v: self.proj.name.lower() not in v["tags"],
                 lambda v: "logged" in v["tags"],
+                lambda v: v.get("end", None) is None,
             ],
             project_tags=[self.proj.name],
         )
@@ -188,6 +189,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
             m.raw_entry: m.raw_entry.interval.timedelta.total_seconds() / total_seconds
             for m in self.active_models
         }
+        logger.info("model shares: {}", model_shares)
 
         model_commits = collections.defaultdict[RawEntry, list[CommitEntry]](list)
         models = collections.deque(
@@ -231,8 +233,14 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
             if not mod.log_entry.commits:
                 logger.debug("using chosen commits for entry commits: {}", mod.log_entry)
                 mod.log_entry.commits = self.chosen_commits
+            header_parts = [str(mod.raw_entry)]
+            if self.draft_logs:
+                header_parts.append(f"WIP: {self.project.name}")
+            header = "\n".join(header_parts)
             changelog = mod.log_entry.generate_changelog(
-                commits=mod.log_entry.commits, project=self.project, header=str(mod.raw_entry)
+                commits=mod.log_entry.commits,
+                project=self.project,
+                header=header,
             )
             changelog: str | None = typer.edit(text=changelog, require_save=True)
             if changelog is None:
@@ -271,6 +279,8 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
             project_name = (
                 f"[bold]Unknown:[/b] {proj_tags}" if not model.has_project else model.project.name
             )
+            if model.raw_entry.is_drafted:
+                project_name = f"[bright_black bold italic](DRAFTED)[/] {project_name}"
             style = "bright_green"
             match model.state:
                 case "invalid":
