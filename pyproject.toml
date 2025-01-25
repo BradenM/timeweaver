@@ -52,8 +52,8 @@ jedi = "^0.18.1"
 pydocstyle = "^6.1.1"
 ward = "^0.67.0b0"
 ipython = "^8.14.0"
-ipdb = "^0.13.13"
 ruff = "^0.0.275"
+pdbpp = {git = "https://github.com/bretello/pdbpp.git", rev = "fix-on-3.11"}
 
 [tool.ward]
 path = ["tests"]  # supply multiple paths using a list
