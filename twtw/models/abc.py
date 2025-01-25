@@ -7,6 +7,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, TypeVar
 
 import attrs
+from dateutil.parser import parse as date_parse
 
 from twtw.models import TimeRange
 from twtw.utils import truncate
@@ -21,8 +22,13 @@ RawEntryData = TypeVar("RawEntryData", bound=dict)
 class RawEntry(abc.ABC):
     id: int
     tags: frozenset[str] = attrs.field(converter=frozenset)
-    start: datetime
-    end: datetime | None = attrs.field(default=None)
+    start: datetime = attrs.field(
+        converter=lambda v: v if isinstance(v, datetime) else date_parse(v)
+    )
+    end: datetime | None = attrs.field(
+        default=None,
+        converter=lambda v: v if v is None else (v if isinstance(v, datetime) else date_parse(v)),
+    )
     annotation: str = attrs.field(default="")
 
     def __str__(self) -> str:
@@ -56,6 +62,10 @@ class RawEntry(abc.ABC):
     @abc.abstractmethod
     def is_logged(self) -> bool:
         ...
+
+    @property
+    def is_drafted(self) -> bool:
+        return False
 
     @abc.abstractmethod
     def is_project(self, project: Project) -> bool:
