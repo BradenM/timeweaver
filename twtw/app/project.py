@@ -123,6 +123,20 @@ def modify(name: str, new_name: Optional[str] = None, tags: Optional[str] = None
 
 
 @app.command()
+def delete(name: str):
+    """Delete a given project."""
+    with Session(engine) as session:
+        proj = session.exec(select(Project).where(Project.name == name.upper())).first()
+        if proj:
+            if rich.prompt.Confirm.ask(
+                f"[b bright_white]Delete project [b bright_red]{proj.name}[/] and all associated repos?"
+            ):
+                session.delete(proj)
+                session.commit()
+                print(f"[b bright_green]Deleted project: {name}")
+
+
+@app.command()
 def associate(name: str, path: Optional[Path] = None):  # noqa: UP007
     proj = Project(name=name).load()
     _path = path or Path.cwd()
