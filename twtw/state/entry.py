@@ -5,18 +5,18 @@ import enum
 import inspect
 from collections.abc import Callable, Iterator
 from enum import auto, unique
-from functools import cached_property, partialmethod
+from functools import partialmethod
 from inspect import Parameter
 from typing import ClassVar, ParamSpec, Protocol, TypeVar
 
 import attrs
 import questionary
-from tinydb import Query
+from sqlmodel import Session, select
 from transitions import EventData, Machine
 
 from twtw.api import Reporter
 from twtw.api.teamwork import TeamworkApi
-from twtw.db import TableState
+from twtw.data import DataAccess
 from twtw.models.abc import EntriesSource, RawEntry
 from twtw.models.models import LogEntry, Project, TeamworkTimeEntryResponse
 
@@ -61,13 +61,10 @@ def _union_model_context_flags(
 @attrs.define(slots=False)
 class EntryContext:
     source: EntriesSource
+    db: DataAccess
     flags: FlowModifier = attrs.field(default=FlowModifier.ENTRIES_AVAILABLE)
     models: list[EntryFlowModel] = attrs.field(factory=list)
-
-    @cached_property
-    def projects(self) -> list[Project]:
-        entries = TableState.db.table(Project.__name__).all()
-        return [Project.parse_obj(e).load() for e in entries]
+    projects: list[Project] = attrs.field(factory=list)
 
     def create_model(
         self, raw_entry: RawEntry, flags: FlowModifier | None = None
@@ -141,7 +138,10 @@ class EntryFlowModel:
         )
         if twtw_id_tag:
             print("Loading entry from tw id:", twtw_id_tag)
-            entry = LogEntry.parse_obj(LogEntry.table_of().get(Query().teamwork_id == twtw_id_tag))
+            session = Session.object_session(self.project)
+            entry = session.execute(
+                select(LogEntry).where(LogEntry.teamwork_id == twtw_id_tag)
+            ).scalar()
             print("Found entry from tw id:", entry, twtw_id_tag)
         else:
             entry = LogEntry(
@@ -149,6 +149,7 @@ class EntryFlowModel:
                 project=self.project,
                 description=str(self.description or self.raw_entry.description),
             )
+            entry.time_entry = self.raw_entry
         self.log_entry = entry
         return self
 
@@ -184,7 +185,10 @@ class EntryFlowModel:
         print("setting tag:", self.log_entry.time_entry, log_state)
         print(self.log_entry)
         self.log_entry.time_entry = self.log_entry.time_entry.add_tags(log_state)
-        self.log_entry.save()
+        for entry in self.log_entry.commit_entries:
+            entry.logged = True
+        self.context.db.add(self.log_entry)
+        self.context.db.commit()
 
     bound_unwrap = partialmethod(_unwrap_event)
     create_entry_handler = partialmethod(bound_unwrap, f=create_entry)
