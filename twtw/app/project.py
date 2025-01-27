@@ -138,14 +138,19 @@ def delete(name: str):
 
 @app.command()
 def associate(name: str, path: Optional[Path] = None):  # noqa: UP007
-    proj = Project(name=name).load()
-    _path = path or Path.cwd()
-    proj_repo = ProjectRepository(path=_path)
-    if rich.prompt.Confirm.ask(
-        f"Associate repo @ [b bright_white]{proj_repo.path}[/] with [b bright_green]{proj.name}[/]?"
-    ):
-        proj_repo.save()
-        proj.repos.append(proj_repo)
-        proj.save()
-        print("[b bright_white]Updated Project:")
-        print(proj)
+    with Session(engine) as session:
+        proj = session.exec(select(Project).where(Project.name == name.upper())).first()
+        print("resolved project:", proj)
+        _path = path or Path.cwd()
+        proj_repo = ProjectRepository(path=str(_path), project=proj)
+        if rich.prompt.Confirm.ask(
+            f"Associate repo @ [b bright_white]{proj_repo.path}[/] with [b bright_green]{proj.name}[/]?"
+        ):
+            session.add(proj_repo)
+            session.commit()
+            print("[b bright_white]Updated Project:")
+            print(proj)
+
+
+if __name__ == "__main__":
+    app()
