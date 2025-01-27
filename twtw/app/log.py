@@ -12,13 +12,15 @@ import sh
 import typer
 from pydantic import BaseModel
 from rich import print
-from tinydb import Query
+from sqlmodel import Session, select
 
+from twtw.data import SQLAlchemyDataAccess
 from twtw.db import TableState
 from twtw.models.abc import EntriesSource
 from twtw.models.config import config
 from twtw.models.models import LogEntry, Project
 from twtw.models.timewarrior import TimeWarriorEntry, TimeWarriorLoader, TimeWarriorRawEntry
+from twtw.session import create_db_and_tables, engine
 from twtw.state.commit import TimeWarriorCreateEntryFlow
 from twtw.state.csv import CSVCreateEntryFlow
 from twtw.state.entry import CreateFlowState
@@ -40,12 +42,13 @@ class QRichPrompt:
         self.question.ask()
 
 
-app = typer.Typer()
+app = typer.Typer(no_args_is_help=True)
 
 
 @app.callback()
-def project(ctx: typer.Context):
-    """Project commands"""
+def log(ctx: typer.Context):
+    """Log commands"""
+    create_db_and_tables()
 
     def _close_db():
         print("Closing database...")
@@ -76,17 +79,21 @@ def do_pending(project_name: Optional[str] = None):  # noqa: UP007
 
 @app.command(name="list")
 def do_list(project_name: Optional[str] = None, synced: Optional[bool] = None):  # noqa: UP007
-    bquery = Query().teamwork_id.exists()
-    if synced is False:
-        bquery = ~bquery
-    if synced is None:
-        bquery = Query().noop()
-    if project_name:
-        bquery &= Query().project.name == Project(name=project_name).load().name
+    with Session(engine) as session:
+        stmt = select(LogEntry)
+        if project_name:
+            project = session.exec(
+                select(Project).where(Project.name == project_name.upper())
+            ).first()
+            stmt = stmt.join(Project).where(LogEntry.project == project)
+        if synced is not None:
+            stmt = stmt.where(
+                LogEntry.teamwork_id.isnot(None) if synced else LogEntry.teamwork_id.is_(None)
+            )
 
-    tbl = TableState.db.table(LogEntry.__name__)
-    items = tbl.search(bquery)
-    print(items)
+        items = session.exec(stmt).all()
+        for i in items:
+            print(i)
 
 
 @app.command(name="csv")
