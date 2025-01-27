@@ -56,6 +56,7 @@ def create_project_node(project: Project, root: Tree) -> Tree:
 
 @app.command(name="list")
 def do_list(search: str | None = None):
+    """List projects."""
     with Session(engine) as session:
         stmt = select(Project)
         if search:
@@ -79,6 +80,7 @@ def add(
     teamwork_name: Optional[str] = None,  # noqa: RUF013, RUF100, UP007
     teamwork_id: Optional[int] = None,  # noqa: RUF013, RUF100, UP007
 ):
+    """Add a new project."""
     with Session(engine) as session:
         tw_proj = None
         if teamwork_id or teamwork_name:
@@ -110,16 +112,18 @@ def add(
 
 @app.command()
 def modify(name: str, new_name: Optional[str] = None, tags: Optional[str] = None):  # noqa: UP007
-    proj = Project(name=name).load()
-    _tags = parse_tags(tags)
-    print(new_name)
-    if new_name:
-        proj.name = new_name
-    if any(_tags):
-        new_tags = set(proj.tags) & set(_tags)
-        proj.tags = list(new_tags)
-    proj.save()
-    print(proj)
+    """Modify a given project."""
+    with Session(engine) as session:
+        proj = Project.get_by_name(name, session)
+        _tags = parse_tags(tags)
+        print(new_name)
+        if new_name:
+            proj.name = new_name
+        if any(_tags):
+            new_tags = set(proj.tags) & set(_tags)
+            proj.tags = list(new_tags)
+        session.commit()
+        print(proj)
 
 
 @app.command()
@@ -138,6 +142,7 @@ def delete(name: str):
 
 @app.command()
 def associate(name: str, path: Optional[Path] = None):  # noqa: UP007
+    """Associate a project with a repo."""
     with Session(engine) as session:
         proj = session.exec(select(Project).where(Project.name == name.upper())).first()
         print("resolved project:", proj)
