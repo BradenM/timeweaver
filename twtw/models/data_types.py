@@ -4,6 +4,7 @@ import git
 import orjson
 from sqlalchemy import JSON, String, TypeDecorator
 
+from twtw.models.abc import RawEntry
 
 
 class PathType(TypeDecorator):
@@ -68,3 +69,24 @@ class SQLGitCommit(TypeDecorator):
             return GitCommit.validate(value)
         return value
 
+
+class SQLRawEntry(TypeDecorator):
+    """SQLAlchemy type for storing RawEntry objects."""
+
+    impl = JSON
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if isinstance(value, dict):
+            value.setdefault("_class", "TimeWarriorRawEntry")
+            value = RawEntry.validate(value)
+        if isinstance(value, RawEntry):
+            fields = value.json()
+            return orjson.dumps(fields).decode()
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            data = orjson.loads(value.encode())
+            return RawEntry.validate(data)
+        return value
