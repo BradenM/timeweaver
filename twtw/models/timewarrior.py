@@ -112,12 +112,15 @@ class TimeWarriorEntry(BaseModel):
         return cls.load_entries(lambda t: "logged" in t["tags"])
 
     @classmethod
-    def unlogged_by_project(cls, project_name: str) -> Iterator[TimeWarriorEntry]:
+    def unlogged_by_project(
+        cls, project_name: str, include_draft: bool = False
+    ) -> Iterator[TimeWarriorEntry]:
         _name = project_name.lower()
         return cls.load_entries(
             lambda t: "logged" in t["tags"],
             lambda t: _name not in t["tags"],
             lambda t: "end" not in t,
+            lambda t: "drafted" not in t["tags"] if include_draft else "drafted" in t["tags"],
         )
 
     @property
