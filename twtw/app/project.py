@@ -79,21 +79,33 @@ def add(
     teamwork_name: Optional[str] = None,  # noqa: RUF013, RUF100, UP007
     teamwork_id: Optional[int] = None,  # noqa: RUF013, RUF100, UP007
 ):
-    tw_proj = None
-    if teamwork_name and teamwork_id:
-        tw_proj = TeamworkProject(name=teamwork_name, project_id=teamwork_id)
-        tw_proj.save()
-    if not tw_proj and teamwork_name:
-        _tw_proj = TeamworkProject(name=teamwork_name).load()
-        if _tw_proj.project_id:
-            tw_proj = _tw_proj
-    _tags = parse_tags(tags)
-    proj = Project(name=name, tags=_tags, teamwork_project=tw_proj).load()
-    proj.save()
-    print("[b bright_white]New Project:")
-    print(proj)
-    print("[b bright_white]Teamwork Project:")
-    print(proj.resolve_teamwork_project())
+    with Session(engine) as session:
+        tw_proj = None
+        if teamwork_id or teamwork_name:
+            tw_proj = session.exec(
+                select(TeamworkProject).where(
+                    TeamworkProject.project_id == teamwork_id
+                    or TeamworkProject.name == teamwork_name
+                )
+            ).first()
+            if not tw_proj:
+                tw_proj = TeamworkProject(name=teamwork_name, project_id=teamwork_id)
+                session.add(tw_proj)
+
+        _tags = parse_tags(tags)
+
+        proj, did_create = get_or_create(
+            session, Project, defaults={"tags": _tags, "teamwork_project": tw_proj}, name=name
+        )
+        if not did_create:
+            print(f"[b bright_red]Project {name} already exists.")
+            raise typer.Abort()
+        session.add(proj)
+        proj.validate_parent(session)
+        print("[b bright_white]New Project:")
+        print(proj)
+        print("[b bright_white]Teamwork Project:")
+        session.commit()
 
 
 @app.command()
