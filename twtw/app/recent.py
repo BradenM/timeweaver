@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Optional, Protocol, cast
+from typing import Any, Protocol, cast
 
 import arrow
 import attrs
@@ -9,11 +9,14 @@ from rich.align import Align
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+from sqlmodel import Session
 
 from twtw.api.ui import Reporter
 from twtw.models.abc import EntriesSource
 from twtw.models.intervals import IntervalAggregator
+from twtw.models.models import Project
 from twtw.models.timewarrior import TimeWarriorEntry, TimeWarriorLoader
+from twtw.session import engine
 
 
 class EntriesFilter(Protocol):
@@ -50,6 +53,23 @@ class DateFilter(EntriesFilter):
 
 
 @attrs.define
+class DateRangeFilter(EntriesFilter):
+    start: arrow.Arrow
+    end: arrow.Arrow
+
+    @classmethod
+    def from_string(cls, start: str, end: str) -> "DateRangeFilter":
+        return cls(start=arrow.get(start), end=arrow.get(end))
+
+    def __call__(self, v: dict[str, Any]) -> bool:
+        start_date = arrow.get(v["start"])
+        if "end" not in v:
+            return True
+        end_date = arrow.get(v.get("end", arrow.now()))
+        return not (self.start <= start_date <= self.end or self.start <= end_date <= self.end)
+
+
+@attrs.define
 class TagFilter(EntriesFilter):
     tag: str
     exclude: bool = False
@@ -79,24 +99,20 @@ class DataAggregator:
         for entry in self.entries:
             if not entry.interval:
                 continue
-            proj_tags = ",".join(entry.tags)
             tags = set(entry.tags)
             tags -= {"@work", "logged", entry.annotation}
             if twtw_id := next((i for i in tags if "twtw" in i), None):
                 tags -= {twtw_id}
-            proj_name = next(
-                (
-                    i
-                    for i in tags
-                    if len([part for part in i.split(".") if part.strip()]) <= 2
-                    and len(i.split()) == 1
-                ),
-                None,
-            )
-            if not proj_name:
-                print("Could not determine project from tags:", proj_tags)
+            with Session(engine) as session:
+                projects_from_tags = [
+                    (Project.get_by_name(n, session), n) for n in tags if "." in n or " " not in n
+                ]
+                project = next((i[0] for i in projects_from_tags if i[0]), None)
+
+            if not project:
+                print("Could not determine project from tags:", projects_from_tags)
                 continue
-            aggr_name = proj_name.lower().strip()
+            aggr_name = project.name.lower().strip()
             aggr = aggregates[aggr_name]
             aggregates[aggr_name] = aggr.add(entry.interval)
         return aggregates
@@ -110,14 +126,38 @@ def recent():
     """View and aggregate recent time entries."""
 
 
-@app.command(name="view")
-def get_recent(days: int = 1, unlogged: bool = False, date: str | None = None):
-    """Get recent entries."""
-    filters = [TagFilter("@work"), DaysFilter(days)]
+def build_filters(
+    *,
+    date: str | None = None,
+    days: int | None = None,
+    end_date: str | None = None,
+    unlogged: bool = False,
+):
+    filters = [TagFilter("@work")]
+    if days is not None and not (date or end_date):
+        filters.append(DaysFilter(days))
     if unlogged:
         filters.append(TagFilter("logged", exclude=True))
     if date:
-        filters = [TagFilter("@work"), DateFilter.from_string(date)]
+        date_filter = (
+            DateRangeFilter.from_string(date)
+            if end_date is None
+            else DateRangeFilter.from_string(date, end_date)
+        )
+        filters.append(date_filter)
+    print(f"Filters: {filters}")
+    return filters
+
+
+@app.command(name="view")
+def get_recent(
+    days: int | None = None,
+    unlogged: bool = False,
+    date: str | None = None,
+    end_date: str | None = None,
+):
+    """Get recent entries."""
+    filters = build_filters(date=date, days=days, end_date=end_date, unlogged=unlogged)
     loader = DataLoader(filters=filters)
     entries = loader.load_data()
     reporter = Reporter()
@@ -169,13 +209,19 @@ def get_recent(days: int = 1, unlogged: bool = False, date: str | None = None):
 
 
 @app.command(name="aggregate")
-def do_aggregate(days: Optional[int] = None):  # noqa: UP007
+def do_aggregate(
+    days: int | None = None,
+    unlogged: bool = False,
+    date: str | None = None,
+    end_date: str | None = None,
+):
     """Aggregate recent entries by project."""
     filters = [
         TagFilter("@work"),
     ]
     if days is not None:
         filters.append(DaysFilter(days))
+    filters = build_filters(date=date, days=days, end_date=end_date, unlogged=unlogged)
     loader = DataLoader(filters=filters)
     entries = loader.load_data()
     aggregator = DataAggregator(entries=entries)
@@ -192,6 +238,30 @@ def do_aggregate(days: Optional[int] = None):  # noqa: UP007
     table.add_column("Project", no_wrap=True)
     table.add_column("Total", no_wrap=True, justify="right")
     project_aggrs = aggregator.get_aggregrates()
+    total = IntervalAggregator()
     for project, aggr in project_aggrs.items():
         table.add_row(project, aggr.duration)
+        for interval in aggr.intervals:
+            total = total.add(interval)
+    table.add_row(
+        "[b bright_white]Total",
+        Text.from_markup(f"[u bright_green]{total.duration}", justify="right"),
+    )
+
+    min_day = min(i.start.date() for i in total.intervals)
+    max_day = max(i.start.date() for i in total.intervals)
+    _days = (max_day - min_day).days + 1
+
+    # average per day
+    avg_hours = total.total_seconds / (60 * 60 * _days)
+    table.add_row(
+        "[b bright_white]Average",
+        Text.from_markup(f"[u bright_green]{avg_hours:.2f}h/day", justify="right"),
+    )
+    # average per work week
+    avg_hours_per_week = avg_hours * 7
+    table.add_row(
+        "[b bright_white]Average",
+        Text.from_markup(f"[u bright_green]{avg_hours_per_week:.2f}h/week", justify="right"),
+    )
     reporter.console.print(Align.center(Panel(table, padding=(1, 3))))
