@@ -1,28 +1,27 @@
-from __future__ import annotations
-
 import logging
 import re
 from collections import defaultdict
 from collections.abc import Iterator
+from contextlib import nullcontext
 from datetime import datetime
-from functools import lru_cache
-from itertools import chain
 from pathlib import Path
 from re import Pattern
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeAlias
 from uuid import UUID
 
 import git
 from mako.template import Template
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel
+from pydantic import Field as PyField
+from pydantic import validator
 from rich.table import Table
+from sqlmodel import JSON, Column, Field, Relationship, Session, SQLModel, select
 from taskw import TaskWarrior
-from tinydb.queries import Query, QueryLike
 
 from twtw.models.abc import RawEntry
+from twtw.models.data_types import PathType, SQLGitCommit, SQLRawEntry
 from twtw.models.timewarrior import TimeRange
-
-from .base import TableModel
+from twtw.utils import get_or_create
 
 if TYPE_CHECKING:
     from rich.console import Console, ConsoleOptions, RenderResult
@@ -44,15 +43,176 @@ class TaskWarriorTask(BaseModel):
     urgency: float
 
     @classmethod
-    def iter_active(cls) -> Iterator[TaskWarriorTask]:
+    def iter_active(cls) -> Iterator["TaskWarriorTask"]:
         tw = TaskWarrior(marshal=True)
         _tasks = tw.load_tasks(command="pending")
         yield from (TaskWarriorTask(**t) for t in _tasks["pending"] if "logged" not in t["tags"])
 
 
-class ProjectRepository(TableModel):
-    path: Path
+class TeamworkProject(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+    project_id: int | None = Field(default=None, index=True)
+
+    projects: list["Project"] = Relationship(back_populates="teamwork_project")
+
+    def __rich_console__(self, *args):
+        yield f"[b bright_white]Teamwork:[/b bright_white][bright_white] {self.name}[/][bright_black] ({self.project_id})"
+
+
+class TeamworkTimeEntry(BaseModel):
+    description: str
+    person_id: str = PyField(..., alias="person-id")
+    date: str
+    time: str
+    hours: str
+    minutes: str
+    billable: bool = PyField(False, alias="isbillable")
+    tags: str | None = None
+
+    class Config:
+        allow_population_by_field_name = True
+
+
+class TeamworkTimeEntryRequest(BaseModel):
+    time_entry: TeamworkTimeEntry = PyField(..., alias="time-entry")
+
+    class Config:
+        allow_population_by_field_name = True
+
+    @classmethod
+    def from_entry(cls, *, entry: "LogEntry", person_id: str):
+        # DATE_FORMAT = "%Y%m%d"
+        # TIME_FORMAT = "%H:%M"
+        start_date = f"{entry.time_entry.start:%Y%m%d}"
+        start_time = f"{entry.time_entry.start:%H:%M}"
+        tags = ",".join(entry.project.resolve_tags())
+        body = TeamworkTimeEntry(
+            description=entry.description,
+            person_id=str(person_id),
+            date=start_date,
+            time=start_time,
+            hours=str(entry.time_entry.interval.delta.hours),
+            minutes=str(entry.time_entry.interval.delta.minutes),
+            tags=tags if tags else None,
+        )
+        return cls(time_entry=body)
+
+
+class TeamworkTimeEntryResponse(BaseModel):
+    time_log_id: int | None = PyField(None, alias="timeLogId")
+    status: str = PyField(..., alias="STATUS")
+
+
+class Project(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+
+    repos: list["ProjectRepository"] = Relationship(back_populates="project")
+
+    teamwork_project_id: int | None = Field(default=None, foreign_key="teamworkproject.id")
+    teamwork_project: TeamworkProject | None = Relationship(back_populates="projects")
+
+    log_entries: list["LogEntry"] = Relationship(back_populates="project")
+
+    parent_id: int | None = Field(default=None, foreign_key="project.id")
+    parent: Optional["Project"] = Relationship(
+        back_populates="children", sa_relationship_kwargs={"remote_side": "Project.id"}
+    )
+
+    children: list["Project"] = Relationship(back_populates="parent")
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other: "Project"):
+        return getattr(self, "name", None) == getattr(other, "name", None)
+
+    @property
+    def is_root(self) -> bool:
+        return self.parent is None
+
+    @property
+    def nickname(self):
+        if self.is_root:
+            return self.name
+        return self.name.split(".")[-1]
+
+    def validate_parent(self, session: Session | None = None) -> Optional["Project"]:
+        """Validate the project hierarchy."""
+        if "." not in self.name:
+            # ensure root proects have no parent
+            if self.parent or self.parent_id:
+                self.parent = None
+                self.parent_id = None
+                session.add(self)
+                session.commit()
+                session.refresh(self)
+            return None
+        # try to find existing parent
+        parent_name = ".".join(self.name.split(".")[:-1])
+        session = session or Session.object_session(self)
+        parent = session.exec(select(Project).where(Project.name == parent_name.upper())).first()
+        logger.debug(
+            "resolved parent (self=%s, parent=%s, parent_name=%s)",
+            self,
+            parent,
+            parent_name.upper(),
+        )
+        if parent:
+            self.parent_id = parent.id
+            # default to parents teamwork project
+            if not self.teamwork_project and parent.teamwork_project:
+                self.teamwork_project_id = parent.teamwork_project_id
+            return parent
+        else:
+            # create parent if it doesn't exist
+            parent = Project(
+                name=parent_name.upper(), tags=[], teamwork_project=self.teamwork_project
+            )
+            session.expunge(self)
+            session.add(parent)
+            session.commit()
+            session.refresh(parent)
+            self.parent_id = parent.id
+            session.add(self)
+            session.commit()
+            parent.validate_parent(session)
+            return parent
+
+    @validator("name", pre=True, always=True)
+    def _validate_name(cls, v: str) -> str:
+        return v.strip().upper()
+
+    @property
+    def repos_by_name(self) -> dict[str, "ProjectRepository"]:
+        return {r.name: r for r in self.repos}
+
+    def resolve_teamwork_project(self) -> TeamworkProject | None:
+        """Resolve the teamwork project for this project."""
+        if self.teamwork_project:
+            return self.teamwork_project
+        if self.parent:
+            return self.parent.resolve_teamwork_project()
+        return None
+
+    def resolve_tags(self) -> Iterator[str]:
+        """Resolve tags from project hierarchy."""
+        yield from iter(self.tags)
+        if self.parent:
+            yield from self.parent.resolve_tags()
+
+
+class ProjectRepository(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    path: Path = Field(sa_column=Column(PathType))
     name: str | None
+
+    project_id: int | None = Field(default=None, foreign_key="project.id")
+    project: Optional["Project"] = Relationship(back_populates="repos")
+
+    commits: list["CommitEntry"] = Relationship(back_populates="repo")
 
     def __lt__(self, other):
         return self.name < other.name
@@ -76,17 +236,9 @@ class ProjectRepository(TableModel):
     def git_repo(self) -> git.Repo:
         return git.Repo(self.path)
 
-    @classmethod
-    def from_git_repo(cls, git_repo: git.Repo) -> ProjectRepository:
-        path = Path(git_repo.working_dir).absolute()
-        query = Query().path == path
-        if res := cls.table_of().get(query):
-            return cls(**res)
-        raise ValueError(f"No ProjectRepository found at working dir: {path}")
-
     def iter_commits_by_author(
         self, author_email: str, *, unlogged_context: int = 50, batch_size: int = 50
-    ) -> Iterator[CommitEntry]:
+    ) -> Iterator["CommitEntry"]:
         context_consumed = 0
         skip_count = 0
 
@@ -107,7 +259,7 @@ class ProjectRepository(TableModel):
                 if not raw_commit.author.email == author_email:
                     continue
                 fetched_commits += 1
-                commit = CommitEntry.parse_commit(raw_commit)
+                commit = CommitEntry.parse_commit(raw_commit, session=Session.object_session(self))
                 yield commit
 
                 # if we run into more already logged commits than unlogged_context, break early
@@ -126,158 +278,39 @@ class ProjectRepository(TableModel):
     def __hash__(self):
         return hash(self.path)
 
-    def __eq__(self, other: ProjectRepository):
+    def __eq__(self, other: "ProjectRepository"):
         return getattr(self, "path", None) == getattr(other, "path", None)
 
     def __str__(self):
         return self.name
 
 
-class TeamworkProject(TableModel):
-    name: str
-    project_id: int | None = None
-
-    def __rich_console__(self, *args):
-        yield f"[b bright_white]Teamwork:[/b bright_white][bright_white] {self.name}[/][bright_black] ({self.project_id})"
-
-
-class TeamworkTimeEntry(BaseModel):
-    description: str
-    person_id: str = Field(..., alias="person-id")
-    date: str
-    time: str
-    hours: str
-    minutes: str
-    billable: bool = Field(False, alias="isbillable")
-    tags: str | None = None
-
-    class Config:
-        allow_population_by_field_name = True
-
-
-class TeamworkTimeEntryRequest(BaseModel):
-    time_entry: TeamworkTimeEntry = Field(..., alias="time-entry")
-
-    class Config:
-        allow_population_by_field_name = True
-
-    @classmethod
-    def from_entry(cls, *, entry: LogEntry, person_id: str):
-        # DATE_FORMAT = "%Y%m%d"
-        # TIME_FORMAT = "%H:%M"
-        start_date = f"{entry.time_entry.start:%Y%m%d}"
-        start_time = f"{entry.time_entry.start:%H:%M}"
-        tags = ",".join(entry.project.resolve_tags())
-        body = TeamworkTimeEntry(
-            description=entry.description,
-            person_id=str(person_id),
-            date=start_date,
-            time=start_time,
-            hours=str(entry.time_entry.interval.delta.hours),
-            minutes=str(entry.time_entry.interval.delta.minutes),
-            tags=tags if tags else None,
-        )
-        return cls(time_entry=body)
-
-
-class TeamworkTimeEntryResponse(BaseModel):
-    time_log_id: int | None = Field(None, alias="timeLogId")
-    status: str = Field(..., alias="STATUS")
-
-
-class Project(TableModel):
-    name: str
-    tags: list[str] = Field(default_factory=list)
-    repos: list[ProjectRepository] = Field(default_factory=list)
-    teamwork_project: TeamworkProject | None = None
-
-    def __hash__(self):
-        return hash(self.name)
-
-    def __eq__(self, other: Project):
-        return getattr(self, "name", None) == getattr(other, "name", None)
-
-    @property
-    @lru_cache  # to prevent early parent invocation.  # noqa: B019
-    def is_root(self) -> bool:
-        return self.parent is None
-
-    @property
-    @lru_cache  # to prevent early parent invocation.  # noqa: B019
-    def nickname(self):
-        if self.is_root:
-            return self.name
-        return self.name.split(".")[-1]
-
-    @property
-    @lru_cache  # noqa: B019
-    def parent(self) -> Project | None:
-        if "." not in self.name:
-            return None
-        parent_name = ".".join(self.name.split(".")[:-1])
-        parent = Project(name=parent_name).load()
-        if not parent.is_loaded:
-            logger.debug("parent is not loaded: %r (loaded: %s)", parent, parent.is_loaded)
-            parent.save()
-        return parent
-
-    def query(self) -> QueryLike:
-        return Query().name == self.name
-
-    @validator("name", pre=True, always=True)
-    def _validate_name(cls, v: str) -> str:
-        return v.strip().upper()
-
-    @property
-    def repos_by_name(self) -> dict[str, ProjectRepository]:
-        return {r.name: r for r in self.repos}
-
-    def resolve_teamwork_project(self) -> TeamworkProject | None:
-        if self.teamwork_project:
-            return self.teamwork_project
-        if self.parent:
-            return self.parent.resolve_teamwork_project()
-        return None
-
-    def resolve_tags(self) -> Iterator[str]:
-        yield from iter(self.tags)
-        if self.parent:
-            yield from self.parent.resolve_tags()
-
-
-class CommitEntry(TableModel):
-    commit: git.Commit
+class CommitEntry(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    commit: git.Commit = Field(sa_column=Column(SQLGitCommit))
     commit_type: str | None
     scope: str | None
     title: str | None
     logged: bool | None = False
 
+    log_entry_id: int | None = Field(default=None, foreign_key="logentry.id")
+    log_entry: Optional["LogEntry"] = Relationship(back_populates="commit_entries")
+
+    repo_id: int | None = Field(default=None, foreign_key="projectrepository.id")
+    repo: Optional["ProjectRepository"] = Relationship(back_populates="commits")
+
     class Config:
         copy_on_model_validation = False
+        arbitrary_types_allowed = True
 
     @property
     def sha(self) -> str:
         return str(self.commit.hexsha)
 
-    def query(self) -> QueryLike:
-        return (Query().sha == self.sha) | Query().fragment(
-            self.dict(include={"title", "commit_type", "scope"})
-        )
-
-    def save(self) -> None:
-        _data = self.dict(exclude={"commit"})
-        _data.setdefault("sha", self.sha)
-        self.table.upsert(_data, cond=self.query())
-
-    def load(self) -> CommitEntry:
-        data = self.table.get(self.query())
-        if data:
-            data.pop("sha", None)
-            return CommitEntry(commit=self.commit, **data)
-        return self
-
     @classmethod
-    def parse_commit(cls, commit: git.Commit) -> CommitEntry:
+    def parse_commit(
+        cls, commit: git.Commit, session: Session | None = None
+    ) -> Optional["CommitEntry"]:
         matcher: Pattern = re.compile(
             r"^(?P<commit_type>(\w+))(\((?P<scope>.+)\))?: (?P<title>.+$)"
         )
@@ -288,7 +321,12 @@ class CommitEntry(TableModel):
         else:
             return None
         default_title.update(groups)
-        return cls(commit=commit, **default_title).load()
+        from twtw.session_local import SessionLocal
+
+        session_cm = nullcontext(session) if session is not None else SessionLocal()
+        with session_cm as session:
+            inst, _ = get_or_create(session, cls, commit=commit, **default_title)
+            return inst
 
     @property
     def authored_date(self) -> str:
@@ -311,20 +349,37 @@ class CommitEntry(TableModel):
         )
 
 
-class LogEntry(TableModel):
-    time_entry: RawEntry
-    project: Project
+class LogEntry(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    time_entry: RawEntry = Field(sa_column=Column(SQLRawEntry))
     taskw_uuid: UUID | None
     teamwork_id: int | None
-    commits: dict[ProjectRepository, list[CommitEntry]] = Field(default_factory=dict)
     description: str | None
 
-    @property
-    def field_defaults(self) -> dict[str, Any]:
-        return {"exclude": {"commits"}}
+    project_id: int | None = Field(default=None, foreign_key="project.id")
+    project: Optional["Project"] = Relationship(back_populates="log_entries")
 
-    def query(self) -> QueryLike:
-        return Query().teamwork_id == self.teamwork_id
+    commit_entries: list["CommitEntry"] = Relationship(back_populates="log_entry")
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    @property
+    def commits(self) -> dict[ProjectRepository, list["CommitEntry"]]:
+        _commits = defaultdict(list)
+        for commit in self.commit_entries:
+            if commit.repo:
+                _commits[commit.repo].append(commit)
+        return _commits
+
+    def add_commits(self, value: dict[ProjectRepository, list["CommitEntry"]]):
+        logger.debug("Adding commits: %s", value)
+        for repo, commits in value.items():
+            for commit in commits:
+                commit.repo_id = repo.id
+                commit.repo = repo
+                if commit not in self.commit_entries:
+                    self.commit_entries.append(commit)
 
     @staticmethod
     def group_by_type_scope(commits: list[CommitEntry]) -> dict[str, dict[str, list[CommitEntry]]]:
@@ -354,14 +409,7 @@ class LogEntry(TableModel):
         tmpl = Template(filename=str(tmpl_path))
         return tmpl.render(repo_commits=repo_commits, project=project, header=header)
 
-    def save(self):
-        commits = chain.from_iterable([v for k, v in self.commits.items()])
-        for commit in commits:
-            commit.logged = True
-            commit.save()
-        super().save()
-
-    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+    def __rich_console__(self, console: "Console", options: "ConsoleOptions") -> "RenderResult":
         yield f"[b]Log Entry:[/b] #{self.time_entry.id} [bright_white i]({self.project.name})[/]"
         table = Table("Attribute", "Value")
         intv = self.time_entry.interval
