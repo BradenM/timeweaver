@@ -1,4 +1,5 @@
 from collections import defaultdict
+from contextlib import nullcontext
 from typing import Any, Protocol, cast
 
 import arrow
@@ -94,7 +95,9 @@ class DataLoader:
 class DataAggregator:
     entries: list[TimeWarriorEntry]
 
-    def get_aggregrates(self) -> defaultdict[str, IntervalAggregator]:
+    def get_aggregrates(
+        self, by_root: bool = False, session: Session | None = None
+    ) -> defaultdict[str, IntervalAggregator]:
         aggregates: defaultdict[str, IntervalAggregator] = defaultdict(IntervalAggregator)
         for entry in self.entries:
             if not entry.interval:
@@ -103,7 +106,8 @@ class DataAggregator:
             tags -= {"@work", "logged", entry.annotation}
             if twtw_id := next((i for i in tags if "twtw" in i), None):
                 tags -= {twtw_id}
-            with Session(engine) as session:
+            session_cm = nullcontext(session) if session else Session(engine)
+            with session_cm as session:
                 projects_from_tags = [
                     (Project.get_by_name(n, session), n) for n in tags if "." in n or " " not in n
                 ]
@@ -112,7 +116,10 @@ class DataAggregator:
             if not project:
                 print("Could not determine project from tags:", projects_from_tags)
                 continue
-            aggr_name = project.name.lower().strip()
+            if by_root:
+                aggr_name = project.root.name.lower().strip()
+            else:
+                aggr_name = project.name.lower().strip()
             aggr = aggregates[aggr_name]
             aggregates[aggr_name] = aggr.add(entry.interval)
         return aggregates
@@ -214,6 +221,7 @@ def do_aggregate(
     unlogged: bool = False,
     date: str | None = None,
     end_date: str | None = None,
+    by_root: bool = False,
 ):
     """Aggregate recent entries by project."""
     filters = [
@@ -237,31 +245,48 @@ def do_aggregate(
     )
     table.add_column("Project", no_wrap=True)
     table.add_column("Total", no_wrap=True, justify="right")
-    project_aggrs = aggregator.get_aggregrates()
-    total = IntervalAggregator()
-    for project, aggr in project_aggrs.items():
-        table.add_row(project, aggr.duration)
-        for interval in aggr.intervals:
-            total = total.add(interval)
-    table.add_row(
-        "[b bright_white]Total",
-        Text.from_markup(f"[u bright_green]{total.duration}", justify="right"),
-    )
+    with Session(engine) as session:
+        project_aggrs = aggregator.get_aggregrates(by_root=by_root, session=session)
+        total = IntervalAggregator()
+        for aggr in project_aggrs.values():
+            for interval in aggr.intervals:
+                total = total.add(interval)
 
-    min_day = min(i.start.date() for i in total.intervals)
-    max_day = max(i.start.date() for i in total.intervals)
-    _days = (max_day - min_day).days + 1
+        for project, aggr in sorted(
+            project_aggrs.items(), key=lambda x: x[1].total_seconds, reverse=True
+        ):
+            share = (aggr.total_seconds / total.total_seconds) * 100
+            table.add_row(project, f"{aggr.duration} ({share:.2f}%)", style="bright_white")
+            for interval in aggr.intervals:
+                total = total.add(interval)
+        table.add_row("", "")
+        table.add_row(
+            "[b bright_white]Total",
+            Text.from_markup(f"[u bright_green]{total.duration}", justify="right"),
+        )
 
-    # average per day
-    avg_hours = total.total_seconds / (60 * 60 * _days)
-    table.add_row(
-        "[b bright_white]Average",
-        Text.from_markup(f"[u bright_green]{avg_hours:.2f}h/day", justify="right"),
-    )
-    # average per work week
-    avg_hours_per_week = avg_hours * 7
-    table.add_row(
-        "[b bright_white]Average",
-        Text.from_markup(f"[u bright_green]{avg_hours_per_week:.2f}h/week", justify="right"),
-    )
-    reporter.console.print(Align.center(Panel(table, padding=(1, 3))))
+        min_day = min(i.start.date() for i in total.intervals)
+        max_day = max(i.start.date() for i in total.intervals)
+        _days = (max_day - min_day).days + 1
+
+        # average per day
+        avg_hours = total.total_seconds / (60 * 60 * _days)
+        table.add_row(
+            "[b bright_white]Daily",
+            Text.from_markup(f"[u bright_green]{avg_hours:.2f}h/day", justify="right"),
+        )
+        # average per work week
+        avg_hours_per_week = avg_hours * 7
+        table.add_row(
+            "[b bright_white]Weekly",
+            Text.from_markup(f"[u bright_green]{avg_hours_per_week:.2f}h/week", justify="right"),
+        )
+        # average bi-weekly
+        avg_hours_per_biweek = avg_hours_per_week * 2
+        table.add_row(
+            "[b bright_white]Bi-Weekly",
+            Text.from_markup(
+                f"[u bright_green]{avg_hours_per_biweek:.2f}h/bi-week", justify="right"
+            ),
+        )
+        reporter.console.print(Align.center(Panel(table, padding=(1, 3))))

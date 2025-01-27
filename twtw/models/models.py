@@ -144,6 +144,13 @@ class Project(SQLModel, table=True):
             return self.name
         return self.name.split(".")[-1]
 
+    @property
+    def root(self) -> "Project":
+        """Get the root project."""
+        if self.is_root:
+            return self
+        return self.parent.root
+
     def validate_parent(self, session: Session | None = None) -> Optional["Project"]:
         """Validate the project hierarchy."""
         if "." not in self.name:
