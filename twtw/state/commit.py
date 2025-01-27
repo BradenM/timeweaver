@@ -222,10 +222,15 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
         )
         for raw_entry, commits in model_commits.items():
             model = next(i for i in self.active_models if i.raw_entry == raw_entry)
-            repo_commits = [(ProjectRepository.from_git_repo(c.commit.repo), c) for c in commits]
-            model.log_entry.commits = {
-                k: [c[1] for c in v] for k, v in group_by(repo_commits, lambda v: v[0]).items()
-            }
+            repo_commits = []
+            for c in commits:
+                project_repo = next(
+                    i for i in self.project.repos if str(i.path) == str(c.commit.repo.working_dir)
+                )
+                repo_commits.append((project_repo, c))
+            model.log_entry.add_commits(
+                {k: [c[1] for c in v] for k, v in group_by(repo_commits, lambda v: v[0]).items()}
+            )
 
     def create_drafts(self, event: EventData):
         if self.should_distribute:
@@ -235,7 +240,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
         for mod in self.active_models:
             if not mod.log_entry.commits:
                 logger.debug("using chosen commits for entry commits: {}", mod.log_entry)
-                mod.log_entry.commits = self.chosen_commits
+                mod.log_entry.add_commits(self.chosen_commits)
             header_parts = [str(mod.raw_entry)]
             if self.draft_logs:
                 header_parts.append(f"WIP: {self.project.name}")
