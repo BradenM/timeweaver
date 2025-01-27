@@ -123,6 +123,11 @@ class Project(SQLModel, table=True):
 
     children: list["Project"] = Relationship(back_populates="parent")
 
+    @classmethod
+    def get_by_name(cls, name: str, session: Session) -> Optional["Project"]:
+        """Get a project by name."""
+        return session.exec(select(Project).where(Project.name == name.upper())).first()
+
     def __hash__(self):
         return hash(self.name)
 
