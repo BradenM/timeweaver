@@ -20,6 +20,7 @@ CSVRawData = TypedDict(
 )
 
 
+@RawEntry.register
 @attrs.define
 class CSVRawEntry(RawEntry):
     @property
@@ -36,7 +37,6 @@ class CSVRawEntry(RawEntry):
 
     def remove_tag(self, *_):
         return self
-
 
 
 @attrs.define

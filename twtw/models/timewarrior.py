@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from twtw.models.models import Project
 
 
+@RawEntry.register
 @attrs.define
 class TimeWarriorRawEntry(RawEntry):
     @property
