@@ -14,6 +14,7 @@ from rich.table import Table
 from rich.text import Text
 from transitions import EventData, Machine
 
+from twtw.data import DataAccess
 from twtw.models.abc import EntriesSource, RawEntry
 from twtw.models.intervals import IntervalAggregator
 from twtw.models.models import CommitEntry, Project, ProjectRepository
@@ -26,6 +27,8 @@ from twtw.utils import group_by
 class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
     git_author: str = attrs.field(default=None)
     proj: Project = attrs.field(default=None)
+    projects: list[Project] = attrs.field(factory=list)
+    db: DataAccess = attrs.field(default=None)
 
     chosen_repos: list[ProjectRepository] = attrs.field(init=False, factory=list)
 
@@ -47,7 +50,7 @@ class TimeWarriorCreateEntryFlow(BaseCreateEntryFlow):
             ],
             project_tags=[self.proj.name],
         )
-        self.context: EntryContext = EntryContext(source=source)
+        self.context: EntryContext = EntryContext(source=source, db=self.db, projects=self.projects)
         self.entry_machine = Machine(
             model=None,
             states=["init", "invalid", "skipped", "draft", "published", "complete"],

@@ -10,6 +10,7 @@ from rich.table import Table
 from rich.text import Text
 from transitions import EventData, Machine
 
+from twtw.data import DataAccess
 from twtw.models.abc import EntriesSource
 from twtw.models.csv_file import CSVEntryLoader
 from twtw.models.intervals import IntervalAggregator
@@ -20,11 +21,13 @@ from twtw.state.entry import BaseCreateEntryFlow, EntryContext, EntryFlowModel, 
 @attrs.define(slots=False)
 class CSVCreateEntryFlow(BaseCreateEntryFlow):
     project: Project = attrs.field(default=None)
+    projects: list[Project] = attrs.field(default=None)
+    db: DataAccess = attrs.field(default=None)
     path: Path = attrs.field(default=None)
 
     def load_context(self, event: EventData) -> None:
         source = EntriesSource.from_loader(CSVEntryLoader, self.path)
-        self.context: EntryContext = EntryContext(source=source)
+        self.context: EntryContext = EntryContext(source=source, db=self.db, projects=self.projects)
         self.entry_machine = Machine(
             model=None,
             states=["init", "invalid", "skipped", "draft", "published", "complete"],
