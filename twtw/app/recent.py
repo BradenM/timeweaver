@@ -17,7 +17,8 @@ from twtw.models.timewarrior import TimeWarriorEntry, TimeWarriorLoader
 
 
 class EntriesFilter(Protocol):
-    def __call__(self, v: dict[str, Any]) -> bool: ...
+    def __call__(self, v: dict[str, Any]) -> bool:
+        ...
 
 
 @attrs.define
@@ -101,7 +102,7 @@ class DataAggregator:
         return aggregates
 
 
-app = typer.Typer()
+app = typer.Typer(no_args_is_help=True)
 
 
 @app.callback()
