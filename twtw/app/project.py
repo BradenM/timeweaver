@@ -6,9 +6,12 @@ import typer
 from rich import print
 from rich.console import Group
 from rich.tree import Tree
+from sqlmodel import Session, select
 
 from twtw.db import TableState
 from twtw.models.models import Project, ProjectRepository, TeamworkProject
+from twtw.session import create_db_and_tables, engine
+from twtw.utils import get_or_create
 
 app = typer.Typer()
 
@@ -16,6 +19,7 @@ app = typer.Typer()
 @app.callback()
 def project(ctx: typer.Context):
     """Project commands"""
+    create_db_and_tables()
 
     def _close_db():
         print("Closing database...")
@@ -51,18 +55,21 @@ def create_project_node(project: Project, root: Tree) -> Tree:
 
 
 @app.command(name="list")
-def do_list():
-    tbl = TableState.db.table(Project.__name__).all()
-    _projects = [Project(name=item["name"]).load() for item in tbl]
-    root_projects: set[Project] = {p for p in _projects if p.is_root}
-    tree = Tree(label="[b bright_white]Projects", highlight=True, expanded=True)
+def do_list(search: str | None = None):
+    with Session(engine) as session:
+        stmt = select(Project)
+        if search:
+            stmt = stmt.where(Project.name.like(f"%{search.upper()}%"))
+        _projects = list(session.exec(stmt))
+        root_projects: set[Project] = {p for p in _projects if p.is_root}
+        tree = Tree(label="[b bright_white]Projects", highlight=True, expanded=True)
 
-    for root in root_projects:
-        proj_family = create_project_node(root, tree)
-        children: set[Project] = {p for p in _projects if p.parent == root}
-        for child in children:
-            create_project_node(child, proj_family)
-    print(tree)
+        for root in root_projects:
+            proj_family = create_project_node(root, tree)
+            children: set[Project] = {p for p in _projects if p.parent and p.parent == root}
+            for child in children:
+                create_project_node(child, proj_family)
+        print(tree)
 
 
 @app.command()
