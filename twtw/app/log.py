@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import nullcontext
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -154,8 +155,11 @@ def do_create(name: str, commit: bool = False, draft: bool = False, distribute: 
                 print(":tada:  [b bright_green]Done!")
 
 
-def get_project_tags() -> set[str]:
-    return {t["name"].lower() for t in Project.table_of().all()}
+def get_project_tags(session: Session | None = None) -> set[str]:
+    session_cm = nullcontext(session) if session is not None else Session(engine)
+    with session_cm as ses:
+        projects = ses.exec(select(Project)).all()
+        return {t.name.lower() for t in projects}
 
 
 def build_timew_source(
@@ -183,29 +187,32 @@ def get_timew_entry(
 @app.command(name="swap")
 def do_swap(new_project: str, ids: list[int], annotation: str = None):  # noqa: RUF013
     """Swap project for given entry ids."""
-    project_tags = get_project_tags()
 
-    def swap(id: int):
-        entry = get_timew_entry(id, project_tags=project_tags)
-        print("Found entry:", entry)
-        current_proj_name = next(i for i in entry.tags if i.lower() in project_tags)
-        current_proj = Project(name=current_proj_name.upper()).load()
-        print("[bright_red] :x: Will remove project:", current_proj)
-        print("[bright_red] :x: Will remove annotation:", entry.annotation)
-        new_proj: Project = Project(name=new_project.upper()).load()
-        new_annot = annotation or entry.annotation
-        print("[bold bright_green] :heavy_check_mark: Will set project:", new_proj)
-        print("[bold bright_green] :heavy_check_mark: Will set annotation:", new_annot)
-        typer.confirm("Confirm changes?", abort=True)
-        entry = (
-            entry.remove_tag(current_proj_name.lower())
-            .remove_tag(entry.annotation)
-            .add_tags(new_proj.name.lower(), new_annot)
-        )
-        print("[bold bright_green]Done!")
+    with Session(engine) as session:
+        project_tags = get_project_tags(session)
 
-    for id in ids:
-        swap(id)
+        def swap(id: int):
+            entry = get_timew_entry(id, project_tags=project_tags)
+            print("Found entry:", entry)
+            current_proj_name = next(i for i in entry.tags if i.lower() in project_tags)
+            current_proj = Project.get_by_name(current_proj_name, session)
+            print("[bright_red] :x: Will remove project:", current_proj)
+            print("[bright_red] :x: Will remove annotation:", entry.annotation)
+            new_proj = Project.get_by_name(new_project, session)
+            new_annot = annotation or entry.annotation
+            print("[bold bright_green] :heavy_check_mark: Will set project:", new_proj)
+            print("[bold bright_green] :heavy_check_mark: Will set annotation:", new_annot)
+            typer.confirm("Confirm changes?", abort=True)
+            entry = (
+                entry.remove_tag(current_proj_name.lower())
+                .remove_tag(entry.annotation)
+                .add_tags(new_proj.name.lower(), new_annot)
+            )
+            print("[bold bright_green]Done!")
+
+        for id in ids:
+            swap(id)
+        session.commit()
 
 
 @app.command(name="reannotate")
