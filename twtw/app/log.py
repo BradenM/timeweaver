@@ -59,23 +59,30 @@ def log(ctx: typer.Context):
 
 
 @app.command(name="pending")
-def do_pending(project_name: Optional[str] = None):  # noqa: UP007
-    if project_name:
-        proj = Project(name=project_name).load()
-        entries = list(reversed(list(TimeWarriorEntry.unlogged_by_project(proj.name))))
-        for i in entries:
+def do_pending(project_name: Optional[str] = None, drafts: bool = False):  # noqa: UP007
+    """Show pending logs."""
+    with Session(engine) as session:
+        if project_name:
+            proj = Project.get_by_name(name=project_name)
+            entries = list(
+                reversed(
+                    list(TimeWarriorEntry.unlogged_by_project(proj.name, include_draft=drafts))
+                )
+            )
+            for i in entries:
+                print(i)
+            return
+        _projects = list(session.exec(select(Project)).all())
+        # root_projects: set[Project] = {p for p in _projects if p.is_root}
+        _pending: list[TimeWarriorEntry] = []
+        for proj in _projects:
+            _proj_entries = list(
+                TimeWarriorEntry.unlogged_by_project(proj.name, include_draft=drafts)
+            )
+            _pending += _proj_entries
+        _pending = sorted(_pending, key=lambda e: e.start, reverse=True)
+        for i in _pending:
             print(i)
-        return
-    tbl = TableState.db.table(Project.__name__).all()
-    _projects = [Project(name=item["name"]).load() for item in tbl]
-    # root_projects: set[Project] = {p for p in _projects if p.is_root}
-    _pending: list[TimeWarriorEntry] = []
-    for proj in _projects:
-        _proj_entries = list(TimeWarriorEntry.unlogged_by_project(proj.name))
-        _pending += _proj_entries
-    _pending = sorted(_pending, key=lambda e: e.start, reverse=True)
-    for i in _pending:
-        print(i)
 
 
 @app.command(name="list")
@@ -234,6 +241,7 @@ class TimeSide(str, Enum):
 
 @app.command(name="modify-relative")
 def do_modify_relative(side: TimeSide, id: int, time: str):
+    """Modify start or end time of given entry relative to current date of the entry."""
     entry = get_timew_entry(id)
     time_obj = datetime.strptime(time, "%I:%M%p").time()
     date_to_modify = entry.start if side == "start" else entry.end
