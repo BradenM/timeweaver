@@ -76,3 +76,22 @@ def get_or_create(
         instance = model(**params)
         session.add(instance)
         return instance, True
+
+
+def pick(d: dict[str, Any], keys: list[str]) -> dict[str, Any]:
+    """
+    Extracts a subset of key-value pairs from a dictionary based on a list of keys. Only keys that exist
+    in the original dictionary are included in the resulting dictionary.
+
+    Parameters:
+        d: dict[str, Any]
+            A dictionary from which key-value pairs will be filtered.
+        keys: list[str]
+            A list of keys that should be included in the output dictionary.
+
+    Returns:
+        dict[str, Any]
+            A dictionary containing only the key-value pairs where the keys exist in both
+            the original dictionary and the provided list of keys.
+    """
+    return {k: d[k] for k in keys if k in d}
