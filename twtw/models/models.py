@@ -415,19 +415,21 @@ class LogEntry(SQLModel, table=True):
         return tmpl.render(repo_commits=repo_commits, project=project, header=header)
 
     def __rich_console__(self, console: "Console", options: "ConsoleOptions") -> "RenderResult":
-        yield f"[b]Log Entry:[/b] #{self.time_entry.id} [bright_white i]({self.project.name})[/]"
         table = Table("Attribute", "Value")
-        intv = self.time_entry.interval
-        table.add_row("Date", intv.day)
-        table.add_row("Time", intv.span)
-        table.add_row("Duration", intv.duration)
+        if self.time_entry:
+            yield f"[b]Log Entry:[/b] #{self.time_entry.id} [bright_white i]({self.project.name})[/]"
+            intv = self.time_entry.interval
+            table.add_row("Date", intv.day)
+            table.add_row("Time", intv.span)
+            table.add_row("Duration", intv.duration)
         table.add_row("Description", self.description)
-        table.add_row(
-            "Tags",
-            ", ".join(
-                list(set(self.time_entry.tags) - {self.project.resolve_teamwork_project().name})
-            ),
-        )
+        if self.time_entry:
+            table.add_row(
+                "Tags",
+                ", ".join(
+                    list(set(self.time_entry.tags) - {self.project.resolve_teamwork_project().name})
+                ),
+            )
         if self.teamwork_id:
             tw_proj = self.project.resolve_teamwork_project()
             table.add_row("[bright_green bold]Teamwork Project[/]", tw_proj.name)
