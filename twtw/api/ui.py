@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any, Protocol, T, TypeAlias, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeAlias, TypeVar, runtime_checkable
 
 import attrs
 import questionary
@@ -9,6 +9,7 @@ from rich import get_console
 from rich.console import Console
 from rich.prompt import Confirm, PromptBase
 
+T = TypeVar("T")
 ChoiceT = TypeVar("ChoiceT")
 ChoiceKeyFunc: TypeAlias = Callable[[ChoiceT], str] | None
 
