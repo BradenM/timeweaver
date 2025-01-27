@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 
 RawEntryData = TypeVar("RawEntryData", bound=dict)
 
+_RawEntryRegistry = dict()
+
 
 @attrs.define(frozen=True)
 class RawEntry(abc.ABC):
@@ -30,6 +32,12 @@ class RawEntry(abc.ABC):
         converter=lambda v: v if v is None else (v if isinstance(v, datetime) else date_parse(v)),
     )
     annotation: str = attrs.field(default="")
+
+    @classmethod
+    def register(cls, klass: type[RawEntry]):
+        """Register a class in the RawEntry subclass registry."""
+        _RawEntryRegistry[klass.__name__] = klass
+        return klass
 
     def __str__(self) -> str:
         _tags = set(self.tags)
@@ -84,6 +92,30 @@ class RawEntry(abc.ABC):
         for v in values:
             new = self.add_tag(v)
         return new
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, value):
+        if not isinstance(value, dict):
+            raise ValueError(f"Expected a dict, got {type(value)}")
+        klass_name = value.pop("_class", list(_RawEntryRegistry)[0])
+        klass = _RawEntryRegistry.get(klass_name, cls)
+        return klass(**value)
+
+    def json(self):
+        def _serialize_values(inst, field, value):
+            if isinstance(value, frozenset):
+                return list(value)
+            return value
+
+        klass = self.__class__.__name__
+        result = attrs.asdict(self, recurse=True, value_serializer=_serialize_values) | {
+            "_class": klass
+        }
+        return result
 
 
 @attrs.define
