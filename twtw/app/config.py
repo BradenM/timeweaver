@@ -4,13 +4,13 @@ from rich import print
 from twtw.db import TableState
 from twtw.models.config import config as app_config
 
-app = typer.Typer()
+app = typer.Typer(no_args_is_help=True)
 
 
 @app.callback()
-def config(ctx: typer.Context):  # noqa: F811
+def config(ctx: typer.Context):
     """Manage TWTW config."""
-    
+
     def _close_db():
         print("Closing database...")
         TableState.db.close()

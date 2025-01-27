@@ -13,7 +13,7 @@ from twtw.models.models import Project, ProjectRepository, TeamworkProject
 from twtw.session import create_db_and_tables, engine
 from twtw.utils import get_or_create
 
-app = typer.Typer()
+app = typer.Typer(no_args_is_help=True)
 
 
 @app.callback()
