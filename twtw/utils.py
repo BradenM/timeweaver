@@ -4,6 +4,8 @@ import itertools
 from collections.abc import Callable, Sequence
 from typing import Any, Protocol, TypeVar
 
+from sqlmodel import Session, SQLModel, select
+
 
 class SupportsLessThan(Protocol):
     def __lt__(self, other: Any) -> bool:
@@ -41,3 +43,36 @@ def truncate(content: str, length: int = 20):
         if content
         else ""
     )
+
+
+ModelT = TypeVar("ModelT", bound=SQLModel)
+
+
+def get_or_create(
+    session: Session, model: type[ModelT], defaults: dict[str, Any] | None = None, **kwargs
+) -> tuple[ModelT, bool]:
+    """
+    Retrieve an instance of the given model from the database filtered by the provided keyword
+    arguments or create a new instance if it does not already exist.
+
+    Parameters:
+        session (Session): The database session used for query execution and creating a database record.
+        model (type[ModelT]): The SQLAlchemy model class for the type of instance to retrieve or create.
+        defaults (dict[str, Any] | None): Optional dictionary of default values to use for creating
+            the instance if one does not already exist.
+        **kwargs: Arbitrary keyword arguments to filter the query when checking if the instance
+            already exists and for providing values when creating a new instance.
+
+    Returns:
+        tuple[ModelT, bool]: A tuple containing the found or created instance as the first element
+            and a boolean indicating whether the instance was created (True) or retrieved
+            (False) as the second element.
+    """
+    instance = session.execute(select(model).filter_by(**kwargs)).scalar()
+    if instance:
+        return instance, False
+    else:
+        params = kwargs | (defaults or {})
+        instance = model(**params)
+        session.add(instance)
+        return instance, True
