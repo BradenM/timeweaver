@@ -58,6 +58,16 @@ def log(ctx: typer.Context):
     ctx.call_on_close(_close_db)
 
 
+def get_pending_projects(session: Session, include_drafts: bool = False) -> list[Project]:
+    _projects = list(session.exec(select(Project)).all())
+    for proj in _projects:
+        _proj_entries = list(
+            TimeWarriorEntry.unlogged_by_project(proj.name, include_draft=include_drafts)
+        )
+        if _proj_entries:
+            yield proj
+
+
 @app.command(name="pending")
 def do_pending(project_name: Optional[str] = None, drafts: bool = False):  # noqa: UP007
     """Show pending logs."""
@@ -125,41 +135,59 @@ def do_csv(csv_path: Path, commit: bool = False):
 
 
 @app.command(name="create")
-def do_create(name: str, commit: bool = False, draft: bool = False, distribute: bool = False):
+def do_create(
+    name: str | None = None,
+    commit: bool = False,
+    draft: bool = False,
+    distribute: bool = False,
+    ignore_drafts: bool = True,
+):
+    """Create a new log entry."""
     with Session(engine) as session:
         dataaccess = SQLAlchemyDataAccess(session)
         projects = list(session.exec(select(Project)).all())
-        proj = session.exec(select(Project).where(Project.name == name.upper())).first()
-        flow = TimeWarriorCreateEntryFlow(
-            proj=proj, git_author=config.GIT_USER, projects=projects, db=dataaccess
-        )
-        flow.start()
-        if commit and draft:
-            raise RuntimeError("Cannot both commit and draft logs!")
-        is_dryrun = not commit and not draft
-        if is_dryrun:
-            flow.dry_run = is_dryrun
-        if draft:
-            flow.draft_logs = draft
-        flow.should_distribute = distribute
-        while True:
-            if flow.machine.is_state(CreateFlowState.CANCEL, flow):
-                print(
-                    "[bright_black][bold](DRY RUN)[/bold] Pass [bright_white bold]--commit[/bright_white bold] to submit logs or [bright_white bold]--draft[/bright_white bold] to submit drafts."
-                )
-                print("[dark_orange]Cancelled!")
-                break
-            try:
-                flow.choose()
-            except KeyboardInterrupt as e:
-                raise typer.Abort(e) from e
-            except Exception as e:
-                print(e, type(e))
-                break
-            else:
-                if commit:
-                    session.commit()
-                print(":tada:  [b bright_green]Done!")
+
+        target_projects = []
+        if name is None:
+            target_projects = list(get_pending_projects(session, include_drafts=not ignore_drafts))
+            print("Found pending projects:", target_projects)
+        else:
+            target_projects.append(Project.get_by_name(name, session))
+
+        for proj in target_projects:
+            print(
+                f"[b bright_white]Creating entries for project:[/b bright_white] [b i bright_cyan]{proj.name}[/]"
+            )
+            flow = TimeWarriorCreateEntryFlow(
+                proj=proj, git_author=config.GIT_USER, projects=projects, db=dataaccess
+            )
+            flow.start()
+            if commit and draft:
+                raise RuntimeError("Cannot both commit and draft logs!")
+            is_dryrun = not commit and not draft
+            if is_dryrun:
+                flow.dry_run = is_dryrun
+            if draft:
+                flow.draft_logs = draft
+            flow.should_distribute = distribute
+            while True:
+                if flow.machine.is_state(CreateFlowState.CANCEL, flow):
+                    print(
+                        "[bright_black][bold](DRY RUN)[/bold] Pass [bright_white bold]--commit[/bright_white bold] to submit logs or [bright_white bold]--draft[/bright_white bold] to submit drafts."
+                    )
+                    print("[dark_orange]Cancelled!")
+                    break
+                try:
+                    flow.choose()
+                except KeyboardInterrupt as e:
+                    raise typer.Abort(e) from e
+                except Exception as e:
+                    print(e, type(e))
+                    break
+                else:
+                    if commit:
+                        session.commit()
+                    print(":tada:  [b bright_green]Done!")
 
 
 def get_project_tags(session: Session | None = None) -> set[str]:
