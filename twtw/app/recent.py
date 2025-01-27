@@ -140,6 +140,8 @@ def build_filters(
     end_date: str | None = None,
     unlogged: bool = False,
 ):
+    if days is None and date is None and end_date is None:
+        days = 1
     filters = [TagFilter("@work")]
     if days is not None and not (date or end_date):
         filters.append(DaysFilter(days))
