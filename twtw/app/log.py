@@ -63,7 +63,7 @@ def do_pending(project_name: Optional[str] = None, drafts: bool = False):  # noq
     """Show pending logs."""
     with Session(engine) as session:
         if project_name:
-            proj = Project.get_by_name(name=project_name)
+            proj = Project.get_by_name(project_name, session)
             entries = list(
                 reversed(
                     list(TimeWarriorEntry.unlogged_by_project(proj.name, include_draft=drafts))
