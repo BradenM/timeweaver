@@ -7,7 +7,12 @@ from rich import print
 
 from twtw.models.config import config
 from twtw.models.models import LogEntry
-from twtw.models.teamwork import TeamworkTimeEntryRequest, TeamworkTimeEntryResponse
+from twtw.models.teamwork import (
+    TeamworkTimeEntriesList,
+    TeamworkTimeEntry,
+    TeamworkTimeEntryRequest,
+    TeamworkTimeEntryResponse,
+)
 
 from ._api import HttpClient
 
@@ -64,3 +69,24 @@ class TeamworkApi:
         return self._validate_time_entry_response(response).copy(
             update={"time_log_id": log_entry.teamwork_id}
         )
+
+    def list_time_entries(
+        self,
+        project_id: str | int | None = None,
+        person_id: str | int | None = None,
+        limit: int = 100,
+    ) -> list[TeamworkTimeEntry]:
+        """List teamwork time entries."""
+        endpoint = (
+            "/time_entries.json"
+            if project_id is None
+            else f"/projects/{project_id}/time_entries.json"
+        )
+        params = {"pagesize": limit, "sortorder": "desc"}
+        if person_id:
+            params |= {"userId": person_id}
+        response = self.client.get(endpoint, params=params)
+        data = TeamworkTimeEntriesList.parse_obj(response.json())
+        if data.status != "OK":
+            raise RuntimeError(f"Failed to list entries, teamwork responded with: {data.status}")
+        return data.time_entries or []
