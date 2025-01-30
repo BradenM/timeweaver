@@ -6,7 +6,8 @@ import attrs
 from rich import print
 
 from twtw.models.config import config
-from twtw.models.models import LogEntry, TeamworkTimeEntryRequest, TeamworkTimeEntryResponse
+from twtw.models.models import LogEntry
+from twtw.models.teamwork import TeamworkTimeEntryRequest, TeamworkTimeEntryResponse
 
 from ._api import HttpClient
 

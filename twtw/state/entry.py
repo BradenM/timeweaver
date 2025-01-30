@@ -18,7 +18,8 @@ from twtw.api import Reporter
 from twtw.api.teamwork import TeamworkApi
 from twtw.data import DataAccess
 from twtw.models.abc import EntriesSource, RawEntry
-from twtw.models.models import LogEntry, Project, TeamworkTimeEntryResponse
+from twtw.models.models import LogEntry, Project
+from twtw.models.teamwork import TeamworkTimeEntryResponse
 
 T = TypeVar("T")
 P = ParamSpec("P")
