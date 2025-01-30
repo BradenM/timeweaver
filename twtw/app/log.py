@@ -11,7 +11,7 @@ import attr
 import questionary
 import sh
 import typer
-from pydantic import BaseModel
+from pydantic.v1 import BaseModel
 from rich import print
 from sqlmodel import Session, select
 

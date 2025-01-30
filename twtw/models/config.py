@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from git import GitConfigParser
-from pydantic import HttpUrl, validator
+from pydantic.v1 import HttpUrl, validator
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.table import Table
 from tinydb import Query

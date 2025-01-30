@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import attrs
 import sh
 from dateutil import parser as dparser
-from pydantic import BaseModel
+from pydantic.v1 import BaseModel
 
 from twtw.models import TimeRange
 from twtw.models.abc import EntryLoader, RawEntry

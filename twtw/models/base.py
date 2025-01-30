@@ -1,13 +1,13 @@
 from typing import TYPE_CHECKING, Any, ClassVar, Union, cast
 
 from loguru import logger
-from pydantic import BaseModel, PrivateAttr, parse_obj_as
+from pydantic.v1 import BaseModel, PrivateAttr, parse_obj_as
 from tinydb import Query
 from tinydb.queries import QueryLike
 from tinydb.table import Table
 
 if TYPE_CHECKING:
-    from pydantic.typing import AbstractSetIntStr, DictStrAny, MappingIntStrAny
+    from pydantic.v1.typing import AbstractSetIntStr, DictStrAny, MappingIntStrAny
 
 
 class TableModel(BaseModel, arbitrary_types_allowed=True):

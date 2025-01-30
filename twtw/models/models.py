@@ -11,9 +11,9 @@ from uuid import UUID
 
 import git
 from mako.template import Template
-from pydantic import BaseModel
-from pydantic import Field as PyField
-from pydantic import validator
+from pydantic.v1 import BaseModel
+from pydantic.v1 import Field as PyField
+from pydantic.v1 import validator
 from rich.table import Table
 from sqlmodel import JSON, Column, Field, Relationship, Session, SQLModel, select
 from taskw import TaskWarrior
